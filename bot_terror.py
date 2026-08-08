@@ -14,6 +14,37 @@ AGNES_API_KEY = os.getenv("AGNES_API_KEY")
 ESTADO_FILE = "estado_terror.json"
 
 # ================================================================
+# VARIANTES PARA EL FINAL DE LA PARTE 1 (23 opciones)
+# ================================================================
+VARIANTES_FINAL_PARTE1 = [
+    # Originales (15)
+    "📌 ¿Qué crees que pasó después? La Parte 2 llega mañana a la misma hora. ¡No te la pierdas! 👇",
+    "🔮 ¿Te atreves a imaginar lo que pasó después? La continuación mañana a la misma hora. 👻",
+    "👁️ ¿Qué crees que encontró? No te pierdas la Parte 2 mañana a la misma hora. 😱",
+    "🌙 La historia continúa mañana a la misma hora. ¿Estás listo para saber la verdad? 👀",
+    "💀 ¿Crees que sobrevivió? La Parte 2 te espera mañana. ¡No faltes! 😈",
+    "📌 El misterio aún no termina. La Parte 2 llega mañana a la misma hora. 👇",
+    "🔥 ¿Qué pasaría si fuera cierto? Mañana la Parte 2 te dará la respuesta. 🌙",
+    "👻 La oscuridad guarda más secretos. La Parte 2 mañana a la misma hora. 🕯️",
+    "❓ ¿Tienes tu propia teoría? La Parte 2 llega mañana. ¡Te leemos en comentarios! 👇",
+    "🌿 El terror no termina aquí. La Parte 2 mañana a la misma hora. 😨",
+    "📌 ¿Ya sabes lo que pasó? La Parte 2 mañana te dará el desenlace. 👀",
+    "🕯️ La historia aún respira. La Parte 2 llega mañana a la misma hora. 🌙",
+    "💀 ¿Qué crees que pasó realmente? La Parte 2 mañana a la misma hora. 👇",
+    "👁️ La respuesta está más cerca de lo que crees. Parte 2 mañana. 😱",
+    "📌 No te quedes con la duda. La Parte 2 llega mañana a la misma hora. 🌙",
+    # Nuevas (8)
+    "⚠️ ¿Y si todo esto fue real? La Parte 2 mañana te lo confirma. 😨",
+    "🌑 La noche guarda el secreto. La Parte 2 llega mañana a la misma hora. 👇",
+    "💬 Cuéntanos tu teoría. La Parte 2 mañana a la misma hora. 👻",
+    "🔦 ¿Qué crees que había detrás de la puerta? Parte 2 mañana. 🌙",
+    "🕸️ El misterio teje su telaraña. La Parte 2 mañana a la misma hora. 😱",
+    "📢 ¡Atención! La Parte 2 llega mañana. No te la pierdas. 👀",
+    "🤔 ¿Tienes miedo de saber la verdad? Parte 2 mañana a la misma hora. 🌙",
+    "⏳ El tiempo se acaba. La Parte 2 mañana te dará el final. 👇"
+]
+
+# ================================================================
 # CARGAR TEMAS DESDE JSON
 # ================================================================
 def cargar_temas():
@@ -65,16 +96,12 @@ REGLAS ESTRICTAS:
 - Describe las REACCIONES de la gente: miedo, incredulidad, respeto, silencio.
 - NO uses lenguaje poético ni exagerado. Sé SOBRIO y DIRECTO, como si estuvieras contando algo que realmente pasó en tu comunidad.
 - El FINAL debe ser un CLIFFHANGER: algo que quedó sin explicación, una pregunta sin respuesta, o una advertencia.
-- Al FINAL, DEBES incluir este mensaje EXACTO:
-
-"📌 ¿Qué crees que pasó después? La Parte 2 llega mañana a la misma hora. ¡No te la pierdas! 👇"
+- NO incluyas ningún llamado a la Parte 2 en el texto (yo lo agregaré después).
 
 Formato EXACTO (copia esto):
 🌙 **El [elemento misterioso] de [municipio], [estado]**
 
 [Texto del testimonio en párrafos cortos, 400 palabras, como si lo contara un habitante del lugar.]
-
-📌 ¿Qué crees que pasó después? La Parte 2 llega mañana a la misma hora. ¡No te la pierdas! 👇
 
 #LeyendasMexicanas #Terror #Misterio
 """
@@ -92,16 +119,12 @@ REGLAS ESTRICTAS:
 - Usa frases como "lo que me dijeron después", "la versión que todos conocen", "dicen que al final".
 - Da un DESENLACE basado en lo que la tradición oral cuenta: puede ser que el misterio nunca se resolvió, que alguien pagó las consecuencias, o que la historia sigue viva.
 - El final debe ser impactante pero creíble.
-- Al FINAL, incluye este mensaje EXACTO:
-
-"💀 ¿Te ha pasado algo parecido? Cuéntanos tu historia en comentarios. 👇"
+- NO incluyas ningún llamado final (yo lo agregaré después).
 
 Formato EXACTO (copia esto):
 🌙 **El [elemento misterioso] de [municipio], [estado]** - Parte 2
 
 [Texto del desenlace en párrafos cortos, 400 palabras.]
-
-💀 ¿Te ha pasado algo parecido? Cuéntanos tu historia en comentarios. 👇
 
 #LeyendasMexicanas #Terror #Misterio
 """
@@ -119,6 +142,26 @@ Formato EXACTO (copia esto):
         return f"🌙 {tema} (Parte {parte})\n\n[Error al generar el testimonio.]"
 
 # ================================================================
+# AGREGAR LLAMADO A LA PARTE 2 (CON VARIANTES)
+# ================================================================
+def agregar_llamado_parte2(texto, parte):
+    """Agrega un llamado variado a la Parte 2 (si no está ya presente)."""
+    if parte == 1:
+        # Elegir un mensaje aleatorio de la lista
+        llamado = random.choice(VARIANTES_FINAL_PARTE1)
+        # Verificar si el mensaje ya está en el texto (por si DeepSeek lo puso)
+        if "Parte 2" not in texto and "mañana" not in texto:
+            return texto + "\n\n" + llamado
+        else:
+            # Si ya hay un llamado, no duplicarlo
+            return texto
+    elif parte == 2:
+        llamado = "\n\n💀 ¿Te ha pasado algo parecido? Cuéntanos tu historia en comentarios. 👇"
+        if "Cuéntanos tu historia" not in texto:
+            return texto + llamado
+    return texto
+
+# ================================================================
 # GENERAR IMAGEN CON AGNES AI (CON TEXTO Y COLORES TENEBROSOS)
 # ================================================================
 def generar_imagen_agnes(tema, parte, titulo_corto):
@@ -127,7 +170,6 @@ def generar_imagen_agnes(tema, parte, titulo_corto):
     con colores tenebrosos: negro, morado, naranja y blanco.
     """
     if parte == 1:
-        # Prompt para Parte 1: atmósfera de misterio con título
         prompt = (
             f"Escena de terror de {tema}, ambientación nocturna y tenebrosa. "
             f"Incluye el texto '{titulo_corto}' escrito con tipografía gótica estilizada "
@@ -136,8 +178,7 @@ def generar_imagen_agnes(tema, parte, titulo_corto):
             f"Composición cinematográfica, niebla, iluminación dramática, "
             f"estilo de cartel de película de terror, 8k, hiperrealista."
         )
-    else:  # Parte 2
-        # Prompt para Parte 2: desenlace con frase impactante
+    else:
         prompt = (
             f"Momento culminante de terror en {tema}, revelación o giro final. "
             f"Incluye la frase corta '{titulo_corto} - Parte 2' en la parte superior "
@@ -249,7 +290,10 @@ def main():
     # Generar testimonio con DeepSeek
     print("📝 Generando testimonio con DeepSeek...")
     texto = generar_historia_deepseek(historia["tema"], historia["parte"])
-    print("✅ Testimonio generado")
+    
+    # Agregar llamado a la Parte 2 (con variantes)
+    texto = agregar_llamado_parte2(texto, historia["parte"])
+    print("✅ Testimonio generado y llamado agregado")
     
     # Extraer título corto para la imagen
     titulo_imagen = extraer_titulo_corto(historia["tema"])
