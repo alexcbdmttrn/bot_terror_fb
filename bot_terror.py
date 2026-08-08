@@ -46,7 +46,7 @@ def guardar_estado(estado):
         json.dump(estado, f, indent=2)
 
 # ================================================================
-# GENERAR HISTORIA CON DEEPSEEK (BASADA EN TESTIMONIOS REALES)
+# GENERAR HISTORIA CON DEEPSEEK (TESTIMONIOS REALES)
 # ================================================================
 def generar_historia_deepseek(tema, parte):
     if parte == 1:
@@ -119,29 +119,62 @@ Formato EXACTO (copia esto):
         return f"🌙 {tema} (Parte {parte})\n\n[Error al generar el testimonio.]"
 
 # ================================================================
-# GENERAR IMAGEN CON AGNES AI (REALISTA Y PROPORCIONAL)
+# GENERAR IMAGEN CON AGNES AI (SOLO AMBIENTACIÓN)
 # ================================================================
 def generar_imagen_agnes(tema, parte):
+    """
+    Genera una imagen de AMBIENTACIÓN basada en el tema.
+    NO muestra personajes ni criaturas, solo escenarios: paisajes, lugares, atmósferas.
+    """
+    # Palabras clave para escenarios según el tema
+    escenarios = {
+        "casa": "casa antigua abandonada, fachada oscura, ventanas rotas, noche, niebla",
+        "carretera": "carretera desierta de noche, niebla baja, árboles secos, paisaje desolado",
+        "camino": "camino de terracería, árboles retorcidos, cielo nublado, atmósfera de misterio",
+        "pueblo": "pueblo mexicano antiguo, calles vacías, farolas amarillas, noche silenciosa",
+        "iglesia": "iglesia vieja, fachada de piedra, campanario, noche, luna llena",
+        "panteón": "cementerio antiguo, cruces, sombras, niebla, árboles secos",
+        "minas": "entrada de mina abandonada, oscuridad, tierra, rocas, niebla",
+        "cerro": "cerro solitario, árboles secos, cielo tormentoso, paisaje desolado",
+        "río": "río de noche, agua oscura, árboles a la orilla, neblina",
+        "hacienda": "hacienda abandonada, patio grande, columnas, noche, luna",
+        "puente": "puente viejo sobre un río oscuro, niebla, árboles, atmósfera de misterio",
+        "tren": "vías de tren abandonadas, vagón oxidado, noche, niebla",
+        "mercado": "mercado vacío de noche, puestos cerrados, sombras, luz tenue",
+        "hospital": "hospital abandonado, fachada oscura, ventanas rotas, noche",
+        "escuela": "escuela vieja, patio vacío, árboles secos, atmósfera de misterio"
+    }
+
+    # Detectar palabra clave del tema
+    tema_lower = tema.lower()
+    escenario_base = "paisaje nocturno, atmósfera de misterio, niebla, iluminación tenue"
+    for clave, valor in escenarios.items():
+        if clave in tema_lower:
+            escenario_base = valor
+            break
+
+    # Construir prompt para ambientación (sin personajes)
     if parte == 1:
         prompt = (
-            f"{tema}, escena de terror realista, atmósfera de misterio, "
-            "iluminación natural y dramática, niebla densa, colores oscuros "
-            "negro, gris, rojo tenue, estilo fotografía de documental, "
-            "sin exageraciones, todo proporcionado, 8k"
+            f"{escenario_base}, "
+            "estilo fotografía de documental, colores oscuros, iluminación natural, "
+            "sin personas, sin criaturas, solo el paisaje, atmósfera de terror y misterio, "
+            "alta definición, 8k, composición cinematográfica"
         )
     else:
         prompt = (
-            f"{tema}, revelación del misterio, momento culminante, "
-            "iluminación contrastada, sombras alargadas, colores intensos "
-            "negro, rojo, morado, estilo cinematográfico realista, 8k"
+            f"{escenario_base}, "
+            "estilo fotografía de documental, colores intensos, iluminación dramática, "
+            "sin personas, sin criaturas, solo el paisaje, atmósfera de terror y revelación, "
+            "alta definición, 8k, composición cinematográfica"
         )
-    
+
     url = "https://apihub.agnes-ai.com/v1/images/generations"
     headers = {"Authorization": f"Bearer {AGNES_API_KEY}", "Content-Type": "application/json"}
     payload = {"model": "agnes-image-2.1-flash", "prompt": prompt, "width": 1024, "height": 1024, "num_images": 1}
     
     try:
-        print(f"🎨 Generando imagen para Parte {parte}...")
+        print(f"🎨 Generando imagen de ambientación para Parte {parte}...")
         response = requests.post(url, headers=headers, json=payload, timeout=90)
         if response.status_code == 200:
             data = response.json()
@@ -220,7 +253,7 @@ def main():
     texto = generar_historia_deepseek(historia["tema"], historia["parte"])
     print("✅ Testimonio generado")
     
-    # Generar imagen con Agnes AI
+    # Generar imagen de ambientación con Agnes AI
     image_url = generar_imagen_agnes(historia["tema"], historia["parte"])
     
     if image_url is None:
