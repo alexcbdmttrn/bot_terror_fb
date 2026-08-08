@@ -1,14 +1,16 @@
 {
   "historia_a": {
-    "titulo": "",
-    "parte": 1,
-    "tema": "",
+    "tema": "El jinete sin sombra de la carretera a El Oro, Estado de México",
+    "parte": 2,
     "completada": false
   },
   "historia_b": {
-    "titulo": "",
+    "tema": "La casa de las lágrimas de Teuchitlán, Jalisco",
     "parte": 1,
-    "tema": "",
     "completada": false
-  }
+  },
+  "publicados": [
+    "El jinete sin sombra de la carretera a El Oro, Estado de México",
+    "La casa de las lágrimas de Teuchitlán, Jalisco"
+  ]
 }
