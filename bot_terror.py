@@ -46,7 +46,7 @@ def guardar_estado(estado):
         json.dump(estado, f, indent=2)
 
 # ================================================================
-# GENERAR HISTORIA CON DEEPSEEK (TESTIMONIOS REALES)
+# GENERAR HISTORIA CON DEEPSEEK (TESTIMONIO REAL)
 # ================================================================
 def generar_historia_deepseek(tema, parte):
     if parte == 1:
@@ -119,74 +119,72 @@ Formato EXACTO (copia esto):
         return f"🌙 {tema} (Parte {parte})\n\n[Error al generar el testimonio.]"
 
 # ================================================================
-# GENERAR IMAGEN CON AGNES AI (SOLO AMBIENTACIÓN)
+# GENERAR IMAGEN CON AGNES AI (CON TEXTO Y COLORES TENEBROSOS)
 # ================================================================
-def generar_imagen_agnes(tema, parte):
+def generar_imagen_agnes(tema, parte, titulo_corto):
     """
-    Genera una imagen de AMBIENTACIÓN basada en el tema.
-    NO muestra personajes ni criaturas, solo escenarios: paisajes, lugares, atmósferas.
+    Genera una imagen con Agnes AI que incluye un título o frase corta
+    con colores tenebrosos: negro, morado, naranja y blanco.
     """
-    # Palabras clave para escenarios según el tema
-    escenarios = {
-        "casa": "casa antigua abandonada, fachada oscura, ventanas rotas, noche, niebla",
-        "carretera": "carretera desierta de noche, niebla baja, árboles secos, paisaje desolado",
-        "camino": "camino de terracería, árboles retorcidos, cielo nublado, atmósfera de misterio",
-        "pueblo": "pueblo mexicano antiguo, calles vacías, farolas amarillas, noche silenciosa",
-        "iglesia": "iglesia vieja, fachada de piedra, campanario, noche, luna llena",
-        "panteón": "cementerio antiguo, cruces, sombras, niebla, árboles secos",
-        "minas": "entrada de mina abandonada, oscuridad, tierra, rocas, niebla",
-        "cerro": "cerro solitario, árboles secos, cielo tormentoso, paisaje desolado",
-        "río": "río de noche, agua oscura, árboles a la orilla, neblina",
-        "hacienda": "hacienda abandonada, patio grande, columnas, noche, luna",
-        "puente": "puente viejo sobre un río oscuro, niebla, árboles, atmósfera de misterio",
-        "tren": "vías de tren abandonadas, vagón oxidado, noche, niebla",
-        "mercado": "mercado vacío de noche, puestos cerrados, sombras, luz tenue",
-        "hospital": "hospital abandonado, fachada oscura, ventanas rotas, noche",
-        "escuela": "escuela vieja, patio vacío, árboles secos, atmósfera de misterio"
-    }
-
-    # Detectar palabra clave del tema
-    tema_lower = tema.lower()
-    escenario_base = "paisaje nocturno, atmósfera de misterio, niebla, iluminación tenue"
-    for clave, valor in escenarios.items():
-        if clave in tema_lower:
-            escenario_base = valor
-            break
-
-    # Construir prompt para ambientación (sin personajes)
     if parte == 1:
+        # Prompt para Parte 1: atmósfera de misterio con título
         prompt = (
-            f"{escenario_base}, "
-            "estilo fotografía de documental, colores oscuros, iluminación natural, "
-            "sin personas, sin criaturas, solo el paisaje, atmósfera de terror y misterio, "
-            "alta definición, 8k, composición cinematográfica"
+            f"Escena de terror de {tema}, ambientación nocturna y tenebrosa. "
+            f"Incluye el texto '{titulo_corto}' escrito con tipografía gótica estilizada "
+            f"en la parte inferior de la imagen, con letras de color naranja brillante y "
+            f"bordes blancos y morados. Fondo en tonos negros y morados oscuros. "
+            f"Composición cinematográfica, niebla, iluminación dramática, "
+            f"estilo de cartel de película de terror, 8k, hiperrealista."
         )
-    else:
+    else:  # Parte 2
+        # Prompt para Parte 2: desenlace con frase impactante
         prompt = (
-            f"{escenario_base}, "
-            "estilo fotografía de documental, colores intensos, iluminación dramática, "
-            "sin personas, sin criaturas, solo el paisaje, atmósfera de terror y revelación, "
-            "alta definición, 8k, composición cinematográfica"
+            f"Momento culminante de terror en {tema}, revelación o giro final. "
+            f"Incluye la frase corta '{titulo_corto} - Parte 2' en la parte superior "
+            f"con letras de color blanco fantasmal y sombras moradas. "
+            f"Colores dominantes: negro, morado, naranja intenso y blanco. "
+            f"Estilo fotorrealista, atmósfera de terror, 8k."
         )
-
+    
     url = "https://apihub.agnes-ai.com/v1/images/generations"
     headers = {"Authorization": f"Bearer {AGNES_API_KEY}", "Content-Type": "application/json"}
     payload = {"model": "agnes-image-2.1-flash", "prompt": prompt, "width": 1024, "height": 1024, "num_images": 1}
     
     try:
-        print(f"🎨 Generando imagen de ambientación para Parte {parte}...")
+        print(f"🎨 Generando imagen con texto para Parte {parte}...")
         response = requests.post(url, headers=headers, json=payload, timeout=90)
         if response.status_code == 200:
             data = response.json()
             image_url = data['data'][0]['url']
-            print("✅ Imagen generada")
+            print("✅ Imagen generada con texto")
             return image_url
         else:
-            print(f"❌ Error en Agnes AI: {response.status_code}")
+            print(f"❌ Error en Agnes AI: {response.status_code} - {response.text}")
             return None
     except Exception as e:
         print(f"❌ Error: {e}")
         return None
+
+# ================================================================
+# EXTRAER TÍTULO CORTO DEL TEMA
+# ================================================================
+def extraer_titulo_corto(tema):
+    """
+    Extrae un título corto y llamativo del tema para ponerlo en la imagen.
+    Ej: "El jinete sin sombra de la carretera a El Oro" -> "El jinete sin sombra"
+    """
+    # Intentar extraer la primera parte del tema (hasta la primera coma o "de")
+    partes = tema.split(',')
+    if len(partes) > 0:
+        titulo = partes[0].strip()
+        # Limitar a 50 caracteres
+        if len(titulo) > 50:
+            titulo = titulo[:47] + "..."
+        return titulo
+    # Si no hay coma, tomar los primeros 50 caracteres
+    if len(tema) > 50:
+        return tema[:47] + "..."
+    return tema
 
 # ================================================================
 # ENVIAR A MAKE.COM
@@ -209,7 +207,7 @@ def enviar_a_make(message, image_url):
 # MAIN
 # ================================================================
 def main():
-    print("👻 Iniciando Bot de Terror (Testimonios Reales)")
+    print("👻 Iniciando Bot de Terror (Imágenes con Texto)")
     print(f"📅 {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     
     if not all([DEEPSEEK_API_KEY, MAKE_WEBHOOK_URL_TERROR, AGNES_API_KEY]):
@@ -243,7 +241,7 @@ def main():
     # Si no hay tema, generar uno nuevo
     if not historia["tema"]:
         historia["tema"] = random.choice(temas)
-        historia["titulo"] = f"Testimonio sobre {historia['tema']}"
+        historia["titulo"] = extraer_titulo_corto(historia["tema"])
         print(f"🌙 Nuevo tema: {historia['titulo']}")
     
     print(f"📖 {historia_key}: Parte {historia['parte']} - {historia['tema']}")
@@ -253,14 +251,19 @@ def main():
     texto = generar_historia_deepseek(historia["tema"], historia["parte"])
     print("✅ Testimonio generado")
     
-    # Generar imagen de ambientación con Agnes AI
-    image_url = generar_imagen_agnes(historia["tema"], historia["parte"])
+    # Extraer título corto para la imagen
+    titulo_imagen = extraer_titulo_corto(historia["tema"])
+    if historia["parte"] == 2:
+        titulo_imagen = titulo_imagen + " - Parte 2"
+    
+    # Generar imagen con Agnes AI (incluyendo título)
+    image_url = generar_imagen_agnes(historia["tema"], historia["parte"], titulo_imagen)
     
     if image_url is None:
         print("⚠️ No se pudo generar imagen. Enviando solo texto.")
         enviar_a_make(texto, None)
     else:
-        print(f"✅ Imagen generada: {image_url}")
+        print(f"✅ Imagen con texto generada: {image_url}")
         enviar_a_make(texto, image_url)
     
     # Actualizar estado (2 partes)
