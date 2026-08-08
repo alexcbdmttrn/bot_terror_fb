@@ -14,6 +14,26 @@ AGNES_API_KEY = os.getenv("AGNES_API_KEY")
 ESTADO_FILE = "estado_terror.json"
 
 # ================================================================
+# TEMAS DE TERROR
+# ================================================================
+TEMAS = [
+    "casa embrujada en un pueblo mexicano",
+    "apariciones en carreteras desiertas",
+    "leyendas de hospitales abandonados",
+    "ovnis en zonas rurales",
+    "la llorona en tiempos modernos",
+    "el charro negro en caminos solitarios",
+    "fantasmas en antiguas haciendas",
+    "brujas en el campo mexicano",
+    "túneles secretos con historias ocultas",
+    "cementerios con leyendas de ultratumba",
+    "aparición en un puente viejo",
+    "el niño que habla con los muertos",
+    "la casa de los susurros",
+    "el vagón del tren fantasma"
+]
+
+# ================================================================
 # ESTADO
 # ================================================================
 def cargar_estado():
@@ -31,51 +51,68 @@ def guardar_estado(estado):
         json.dump(estado, f, indent=2)
 
 # ================================================================
-# GENERAR HISTORIA CON DEEPSEEK (Parte 1 o 2)
+# GENERAR HISTORIA CON DEEPSEEK (2 PARTES)
 # ================================================================
 def generar_historia_deepseek(tema, parte):
     if parte == 1:
-        final_parte = """
-Al final de la Parte 1, DEBES incluir EXACTAMENTE este texto:
+        prompt = f"""Eres un escritor de terror especializado en leyendas urbanas de México.
 
-"📌 ¿Qué crees que pasó después? La Parte 2 llega mañana a la misma hora.  
-Te espero en comentarios. 👇"
-"""
-    else:
-        final_parte = """
-Al final de la Parte 2, DEBES incluir un cierre con un giro final y este mensaje:
-
-"📌 ¿Te ha pasado algo parecido? Cuéntanos en comentarios. 👇"
-"""
-
-    prompt = f"""Eres un escritor de terror especializado en leyendas urbanas de México.
-
-Escribe la PARTE {parte} de una historia de terror de EXACTAMENTE 400 palabras, basada en este tema:
+Escribe la PARTE 1 de una historia de terror de EXACTAMENTE 400 palabras, basada en este tema:
 "{tema}"
 
-Requisitos:
-- Ambientación: Un municipio real de México (elige uno al azar).
-- Narración en primera persona (testimonio).
-- Debe sonar como una anécdota real (usa frases como "en mi pueblo", "cuenta mi abuelo", "yo mismo lo vi").
-- Estilo: párrafos cortos, lenguaje sencillo, atmosférico.
-- La Parte 1 debe presentar el misterio y terminar con un cliffhanger.
-- La Parte 2 debe dar el desenlace (puede ser terrorífico o emotivo).
+REGLAS ESTRICTAS:
+- Ambientación: Un municipio real de México.
+- Narración en primera persona.
+- Debe sonar como una anécdota real.
+- Párrafos cortos, lenguaje sencillo, atmosférico.
+- PRESENTA el misterio y DESARROLLA la tensión.
+- El FINAL debe ser un CLIFFHANGER que obligue a leer la Parte 2.
+- Al FINAL, DEBES incluir este mensaje EXACTO:
 
-{final_parte}
+"📌 ¿Qué crees que pasó después? La Parte 2 llega mañana a la misma hora. ¡No te la pierdas! 👇"
 
-Formato EXACTO (como ejemplo):
-🌙 **El Charro Negro de Jilotepec, Estado de México**
+Formato EXACTO:
+🌙 [Título: "El [elemento misterioso] de [municipio], [estado]"]
 
 [Texto de la historia en párrafos cortos, 400 palabras.]
 
-[LLAMADO FINAL según la parte]
+📌 ¿Qué crees que pasó después? La Parte 2 llega mañana a la misma hora. ¡No te la pierdas! 👇
+
+#LeyendasMexicanas #Terror #Misterio
 """
+    else:  # Parte 2
+        prompt = f"""Eres un escritor de terror especializado en leyendas urbanas de México.
+
+Escribe la PARTE 2 (DESENLACE) de una historia de terror de EXACTAMENTE 400 palabras, basada en este tema:
+"{tema}"
+
+REGLAS ESTRICTAS:
+- Ambientación: El mismo municipio de la Parte 1.
+- Narración en primera persona.
+- Debe sonar como una anécdota real.
+- Párrafos cortos, lenguaje sencillo, atmosférico.
+- Da el DESENLACE: revela qué pasó realmente, el giro final, o la conclusión terrorífica.
+- Puede ser terrorífico, triste o con un final abierto pero impactante.
+- Al FINAL, incluye este mensaje EXACTO:
+
+"💀 ¿Te ha pasado algo parecido? Cuéntanos tu historia en comentarios. 👇"
+
+Formato EXACTO:
+🌙 [Título: "El [elemento misterioso] de [municipio], [estado]" - Parte 2]
+
+[Texto del desenlace en párrafos cortos, 400 palabras.]
+
+💀 ¿Te ha pasado algo parecido? Cuéntanos tu historia en comentarios. 👇
+
+#LeyendasMexicanas #Terror #Misterio
+"""
+
     url = "https://api.deepseek.com/v1/chat/completions"
     headers = {"Authorization": f"Bearer {DEEPSEEK_API_KEY}", "Content-Type": "application/json"}
-    payload = {"model": "deepseek-chat", "messages": [{"role": "user", "content": prompt}], "temperature": 0.8, "max_tokens": 600}
+    payload = {"model": "deepseek-chat", "messages": [{"role": "user", "content": prompt}], "temperature": 0.85, "max_tokens": 650}
     
     try:
-        r = requests.post(url, headers=headers, json=payload, timeout=60)
+        r = requests.post(url, headers=headers, json=payload, timeout=90)
         r.raise_for_status()
         return r.json()["choices"][0]["message"]["content"].strip()
     except Exception as e:
@@ -83,20 +120,31 @@ Formato EXACTO (como ejemplo):
         return f"🌙 {tema} (Parte {parte})\n\n[Error al generar la historia.]"
 
 # ================================================================
-# GENERAR IMAGEN CON AGNES AI (prompts mejorados)
+# GENERAR IMAGEN CON AGNES AI (PROMPTS MEJORADOS)
 # ================================================================
 def generar_imagen_agnes(tema, parte):
+    # Prompts más detallados y terroríficos según la parte
     if parte == 1:
-        prompt_img = f"{tema}, atmósfera de terror oscura, niebla densa, colores negro y naranja, siluetas amenazantes, estilo cinematográfico de terror, 8k, hiperrealista, fotografía nocturna con luz tenue"
-    else:
-        prompt_img = f"{tema}, desenlace terrorífico, luces rojas y moradas, sombras alargadas, criaturas acechando, estilo cinematográfico de terror, 8k, hiperrealista"
-
+        prompt = (
+            f"{tema}, escena oscura y tenebrosa, atmósfera de terror, "
+            "niebla densa, iluminación dramática con sombras alargadas, "
+            "colores negro, rojo, naranja y morado, estilo cinematográfico de terror, "
+            "hiperrealista, 8k, composición vertical para redes sociales"
+        )
+    else:  # Parte 2 - más intenso
+        prompt = (
+            f"{tema}, momento de máximo terror, revelación aterradora, "
+            "figuras oscuras acechando, luz roja y naranja, sombras amenazantes, "
+            "estilo cinematográfico de terror, hiperrealista, 8k, "
+            "composición vertical para redes sociales"
+        )
+    
     url = "https://apihub.agnes-ai.com/v1/images/generations"
     headers = {"Authorization": f"Bearer {AGNES_API_KEY}", "Content-Type": "application/json"}
-    payload = {"model": "agnes-image-2.1-flash", "prompt": prompt_img, "width": 1024, "height": 1024, "num_images": 1}
+    payload = {"model": "agnes-image-2.1-flash", "prompt": prompt, "width": 1024, "height": 1024, "num_images": 1}
     
     try:
-        print("🎨 Generando imagen con Agnes AI...")
+        print(f"🎨 Generando imagen para Parte {parte}...")
         response = requests.post(url, headers=headers, json=payload, timeout=90)
         if response.status_code == 200:
             data = response.json()
@@ -139,39 +187,40 @@ def main():
         return
     
     estado = cargar_estado()
+    
+    # Determinar qué historia toca (3 PM = A, 8 PM = B)
     hora = datetime.now().hour
-    historia_key = "historia_a" if hora == 15 else "historia_b"
+    if hora == 15:  # 3 PM
+        historia_key = "historia_a"
+    elif hora == 20 or hora == 21 or hora == 22:  # 8 PM o cercano
+        historia_key = "historia_b"
+    else:
+        # Si no coincide con los horarios, usar aleatorio
+        historia_key = random.choice(["historia_a", "historia_b"])
+    
     historia = estado[historia_key]
     
+    # Si la historia está completada, resetear
     if historia.get("completada", False):
         historia["titulo"] = ""
         historia["parte"] = 1
         historia["tema"] = ""
         historia["completada"] = False
     
+    # Si no hay tema, generar uno nuevo
     if not historia["tema"]:
-        temas = [
-            "casa embrujada en un pueblo mexicano",
-            "apariciones en carreteras desiertas",
-            "leyendas de hospitales abandonados",
-            "ovnis en zonas rurales",
-            "la llorona en tiempos modernos",
-            "el charro negro en caminos solitarios",
-            "fantasmas en antiguas haciendas",
-            "brujas en el campo mexicano",
-            "túneles secretos con historias ocultas",
-            "cementerios con leyendas de ultratumba"
-        ]
-        historia["tema"] = random.choice(temas)
+        historia["tema"] = random.choice(TEMAS)
         historia["titulo"] = f"Historia de {historia['tema']}"
         print(f"🌙 Nueva historia: {historia['titulo']}")
     
     print(f"📖 {historia_key}: Parte {historia['parte']} - {historia['tema']}")
     
+    # Generar historia con DeepSeek
     print("📝 Generando historia con DeepSeek...")
     texto = generar_historia_deepseek(historia["tema"], historia["parte"])
     print("✅ Historia generada")
     
+    # Generar imagen con Agnes AI
     image_url = generar_imagen_agnes(historia["tema"], historia["parte"])
     
     if image_url is None:
@@ -181,8 +230,9 @@ def main():
         print(f"✅ Imagen generada: {image_url}")
         enviar_a_make(texto, image_url)
     
+    # Actualizar estado (2 partes)
     historia["parte"] += 1
-    if historia["parte"] > 2:  # Solo 2 partes
+    if historia["parte"] > 2:  # SOLO 2 PARTES
         historia["completada"] = True
         print("✅ Historia completada (2 partes)")
     
