@@ -14,41 +14,6 @@ AGNES_API_KEY = os.getenv("AGNES_API_KEY")
 ESTADO_FILE = "estado_terror.json"
 
 # ================================================================
-# 10 FORMATOS DE COMPOSICIÓN PARA IMÁGENES
-# ================================================================
-ESTILOS_IMAGEN = [
-    # Formato 1: Paisaje nocturno con camino
-    "Paisaje nocturno de México, camino de terracería que se pierde en la oscuridad, árboles secos y retorcidos a los lados, niebla baja y densa, cielo estrellado, iluminación tenue de luna, atmósfera de misterio y terror, ultrarrealista, 8k, hiperdetallado, composición cinematográfica, sin personas en primer plano, solo el paisaje como protagonista.",
-    
-    # Formato 2: Casa abandonada en la niebla
-    "Casa abandonada en un pueblo de México, fachada descascarada con ventanas rotas, puerta de madera entreabierta, niebla densa que envuelve la estructura, maleza creciendo en el patio, árboles secos alrededor, iluminación nocturna tenue, ultrarrealista, 8k, hiperdetallado, estilo cinematográfico de terror, sin personas visibles, solo el lugar y su atmósfera.",
-    
-    # Formato 3: Bosque de árboles retorcidos
-    "Bosque denso de árboles retorcidos y sin hojas en México, niebla baja y espesa entre los troncos, rocas cubiertas de musgo, arbustos secos, luz de luna filtrándose entre las ramas, atmósfera opresiva y terrorífica, ultrarrealista, 8k, hiperdetallado, sin personas en primer plano, solo el bosque como protagonista.",
-    
-    # Formato 4: Carretera desierta con neblina
-    "Carretera desierta en México, asfalto agrietado, neblina densa que oculta el horizonte, árboles secos y arbustos a los lados, un vehículo abandonado en la cuneta cubierto de óxido, iluminación tenue de amanecer o atardecer, ultrarrealista, 8k, hiperdetallado, composición cinematográfica, sin personas en primer plano.",
-    
-    # Formato 5: Cementerio antiguo al atardecer
-    "Cementerio antiguo en México, cruces de piedra cubiertas de musgo, flores marchitas en algunas tumbas, árboles secos alrededor, cielo de atardecer con tonos naranja y morado, niebla baja que se desliza entre las tumbas, atmósfera de terror y misterio, ultrarrealista, 8k, hiperdetallado, sin personas visibles.",
-    
-    # Formato 6: Río o lago oscuro con reflejos
-    "Río de aguas oscuras y tranquilas en México, vegetación densa en las orillas, árboles con ramas que tocan el agua, reflejos de la luna en la superficie, niebla baja que se eleva desde el agua, atmósfera de misterio y terror, ultrarrealista, 8k, hiperdetallado, sin personas en primer plano.",
-    
-    # Formato 7: Montañas y barrancas con neblina
-    "Paisaje montañoso de México, barrancas profundas cubiertas de neblina, vegetación árida y seca, cielo tormentoso con nubes oscuras, iluminación dramática con rayos de luz atravesando las nubes, ultrarrealista, 8k, hiperdetallado, sin personas visibles, solo el paisaje como protagonista.",
-    
-    # Formato 8: Pueblo fantasma al amanecer
-    "Pueblo fantasma en México, calles de tierra y polvo, edificios abandonados con paredes descascaradas, ventanas sin vidrio, vegetación creciendo en las estructuras, amanecer con luz tenue y dorada, atmósfera de abandono y misterio, ultrarrealista, 8k, hiperdetallado, sin personas visibles.",
-    
-    # Formato 9: Cueva o gruta oscura
-    "Cueva profunda en México, formaciones rocosas de estalactitas y estalagmitas, oscuridad predominante con luz tenue que entra desde la entrada, sombras alargadas, atmósfera opresiva y terrorífica, ultrarrealista, 8k, hiperdetallado, sin personas en primer plano.",
-    
-    # Formato 10: Puente viejo sobre río seco
-    "Puente de piedra viejo en México, arco de piedra cubierto de musgo, río seco con piedras y arena, vegetación seca y árboles retorcidos alrededor, niebla baja y cielo gris, atmósfera de abandono y misterio, ultrarrealista, 8k, hiperdetallado, sin personas visibles."
-]
-
-# ================================================================
 # VARIANTES PARA EL FINAL DE LA PARTE 1
 # ================================================================
 VARIANTES_FINAL_PARTE1 = [
@@ -108,7 +73,7 @@ def guardar_estado(estado):
         json.dump(estado, f, indent=2)
 
 # ================================================================
-# GENERAR HISTORIA CON DEEPSEEK
+# GENERAR HISTORIA + PROMPT DE IMAGEN CON DEEPSEEK
 # ================================================================
 def generar_historia_deepseek(tema, parte):
     if parte == 1:
@@ -127,7 +92,7 @@ REGLAS ESTRICTAS:
 - Describe las REACCIONES de la gente: miedo, incredulidad, respeto.
 - Sé SOBRIO y DIRECTO.
 - El FINAL debe ser un CLIFFHANGER.
-- NO incluyas ningún llamado a la Parte 2 (yo lo agregaré después).
+- NO incluyas ningún llamado a la Parte 2.
 
 Formato EXACTO:
 🌙 **El [elemento misterioso] de [municipio], [estado]**
@@ -135,6 +100,9 @@ Formato EXACTO:
 [Texto del testimonio en párrafos cortos, 400 palabras.]
 
 #LeyendasMexicanas #Terror #Misterio
+
+===== PROMPT_IMAGEN =====
+[Genera un prompt detallado para crear una imagen que represente la escena principal de esta historia. Incluye: lugar específico, hora del día, elementos del entorno (árboles, casas, caminos, niebla, etc.), colores predominantes, atmósfera (misteriosa, terrorífica), y cualquier figura o elemento importante. Sé descriptivo, visual y concreto. Escribe en español.]
 """
     else:
         prompt = f"""Eres un INVESTIGADOR DE LEYENDAS URBANAS Y TRADICIÓN ORAL MEXICANA.
@@ -147,7 +115,7 @@ REGLAS ESTRICTAS:
 - Narración en PRIMERA PERSONA.
 - Usa frases como "lo que me dijeron después", "la versión que todos conocen".
 - Da un DESENLACE basado en lo que la tradición oral cuenta.
-- NO incluyas ningún llamado final (yo lo agregaré después).
+- NO incluyas ningún llamado final.
 
 Formato EXACTO:
 🌙 **El [elemento misterioso] de [municipio], [estado]** - Parte 2
@@ -155,6 +123,9 @@ Formato EXACTO:
 [Texto del desenlace en párrafos cortos, 400 palabras.]
 
 #LeyendasMexicanas #Terror #Misterio
+
+===== PROMPT_IMAGEN =====
+[Genera un prompt detallado para crear una imagen que represente la escena principal de esta historia. Incluye: lugar específico, hora del día, elementos del entorno, colores predominantes, atmósfera, y cualquier figura o elemento importante. Sé descriptivo, visual y concreto. Escribe en español.]
 """
 
     url = "https://api.deepseek.com/v1/chat/completions"
@@ -164,10 +135,18 @@ Formato EXACTO:
     try:
         r = requests.post(url, headers=headers, json=payload, timeout=90)
         r.raise_for_status()
-        return r.json()["choices"][0]["message"]["content"].strip()
+        respuesta = r.json()["choices"][0]["message"]["content"].strip()
+        
+        if "===== PROMPT_IMAGEN =====" in respuesta:
+            partes = respuesta.split("===== PROMPT_IMAGEN =====")
+            historia = partes[0].strip()
+            prompt_imagen = partes[1].strip() if len(partes) > 1 else f"Escena de terror basada en: {tema}. Paisaje nocturno."
+            return {"historia": historia, "prompt_imagen": prompt_imagen}
+        else:
+            return {"historia": respuesta, "prompt_imagen": f"Escena de terror basada en: {tema}. Paisaje nocturno, atmósfera misteriosa."}
     except Exception as e:
         print(f"❌ Error en DeepSeek: {e}")
-        return f"🌙 {tema} (Parte {parte})\n\n[Error al generar el testimonio.]"
+        return {"historia": f"🌙 {tema} (Parte {parte})\n\n[Error al generar el testimonio.]", "prompt_imagen": f"Escena de terror en {tema}"}
 
 # ================================================================
 # AGREGAR LLAMADO A LA PARTE 2
@@ -185,28 +164,20 @@ def agregar_llamado_parte2(texto, parte):
     return texto
 
 # ================================================================
-# GENERAR IMAGEN CON AGNES AI (10 FORMATOS DE COMPOSICIÓN)
+# GENERAR IMAGEN CON AGNES AI (USANDO PROMPT DE DEEPSEEK)
 # ================================================================
-def generar_imagen_agnes(tema, parte):
+def generar_imagen_agnes(prompt_imagen):
     """
-    Genera una imagen con Agnes AI usando uno de los 10 formatos de composición.
+    Genera una imagen con Agnes AI usando el prompt generado por DeepSeek.
     """
-    formato = random.choice(ESTILOS_IMAGEN)
-    print(f"🎨 Formato seleccionado: {formato[:60]}...")
-    
-    if parte == 1:
-        base = f"Escena de terror basada en: {tema}. "
-    else:
-        base = f"Momento culminante de terror basado en: {tema}. "
-    
-    prompt_completo = base + formato
+    prompt_completo = f"{prompt_imagen} Ultrarrealista, 8k, hiperdetallado, estilo cinematográfico de terror, colores dominantes: negro, morado, naranja y blanco."
     
     url = "https://apihub.agnes-ai.com/v1/images/generations"
     headers = {"Authorization": f"Bearer {AGNES_API_KEY}", "Content-Type": "application/json"}
     payload = {"model": "agnes-image-2.1-flash", "prompt": prompt_completo, "width": 1024, "height": 1024, "num_images": 1}
     
     try:
-        print(f"🎨 Generando imagen para Parte {parte}...")
+        print("🎨 Generando imagen con Agnes AI...")
         response = requests.post(url, headers=headers, json=payload, timeout=90)
         if response.status_code == 200:
             data = response.json()
@@ -241,7 +212,7 @@ def enviar_a_make(message, image_url):
 # MAIN
 # ================================================================
 def main():
-    print("👻 Iniciando Bot de Terror (10 formatos de composición)")
+    print("👻 Iniciando Bot de Terror (Prompt personalizado por historia)")
     print(f"📅 {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     
     if not all([DEEPSEEK_API_KEY, MAKE_WEBHOOK_URL_TERROR, AGNES_API_KEY]):
@@ -276,18 +247,22 @@ def main():
     
     print(f"📖 {historia_key}: Parte {historia['parte']}")
     
-    print("📝 Generando testimonio con DeepSeek...")
-    texto = generar_historia_deepseek(historia["tema"], historia["parte"])
+    print("📝 Generando testimonio y prompt de imagen con DeepSeek...")
+    resultado = generar_historia_deepseek(historia["tema"], historia["parte"])
+    texto = resultado["historia"]
+    prompt_imagen = resultado["prompt_imagen"]
+    
     texto = agregar_llamado_parte2(texto, historia["parte"])
     print("✅ Testimonio generado y llamado agregado")
+    print(f"🎨 Prompt de imagen generado: {prompt_imagen[:100]}...")
     
-    image_url = generar_imagen_agnes(historia["tema"], historia["parte"])
+    image_url = generar_imagen_agnes(prompt_imagen)
     
     if image_url is None:
         print("⚠️ No se pudo generar imagen. Enviando solo texto.")
         enviar_a_make(texto, None)
     else:
-        print(f"✅ Imagen generada con formato aleatorio")
+        print(f"✅ Imagen generada con prompt personalizado")
         enviar_a_make(texto, image_url)
     
     historia["parte"] += 1
