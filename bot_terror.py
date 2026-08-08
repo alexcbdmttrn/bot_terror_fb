@@ -14,6 +14,23 @@ AGNES_API_KEY = os.getenv("AGNES_API_KEY")
 ESTADO_FILE = "estado_terror.json"
 
 # ================================================================
+# LISTA DE ARQUETIPOS DE PERSONAJES (para variedad)
+# ================================================================
+ARQUETIPOS_PERSONAJES = [
+    # Edad, vestimenta, postura, expresión
+    "hombre de 40 años, sombrero de charro desgastado, camisa blanca arrugada, pantalón oscuro, botas de cuero, postura erguida pero tensa, rostro con rasgos mestizos marcados, barba de varios días, mirada seria y desafiante",
+    "mujer de 30 años, vestido negro largo y holgado, cabello largo y suelto, rostro pálido, expresión triste y perdida, postura encorvada, manos entrelazadas",
+    "niño de 10 años, ropa vieja y desgastada, cabello despeinado, rostro sucio, mirada asustada y curiosa, postura encogida como si tuviera frío",
+    "hombre de 60 años, camisa de cuadros, pantalón de mezclilla, sombrero de paja, rostro arrugado y curtido, expresión seria, postura firme con las manos en los bolsillos",
+    "mujer de 50 años, vestido de flores descolorido, rebozo, cabello recogido en un moño, rostro con arrugas profundas, expresión preocupada, postura recta con los brazos cruzados",
+    "hombre de 25 años, chamarra de cuero, camiseta negra, pantalón oscuro, botas, rostro con rasgos jóvenes, expresión desafiante, postura relajada pero alerta",
+    "mujer de 20 años, vestido blanco sencillo, cabello largo y oscuro, rostro de facciones finas, expresión melancólica, postura erguida con las manos juntas",
+    "anciano de 70 años, camisa blanca, bastón de madera, sombrero de ala ancha, rostro marcado por el tiempo, expresión sabia y seria, postura encorvada apoyado en el bastón",
+    "adolescente de 15 años, sudadera con capucha, jeans rasgados, tenis, rostro joven, expresión asustada y curiosa, postura encogida con las manos en las bolsas",
+    "hombre de 45 años, traje oscuro desgastado, corbata floja, rostro serio y cansado, postura recta pero con los hombros caídos"
+]
+
+# ================================================================
 # VARIANTES PARA EL FINAL DE LA PARTE 1
 # ================================================================
 VARIANTES_FINAL_PARTE1 = [
@@ -73,9 +90,12 @@ def guardar_estado(estado):
         json.dump(estado, f, indent=2)
 
 # ================================================================
-# GENERAR HISTORIA + PROMPT DE IMAGEN CON DEEPSEEK
+# GENERAR HISTORIA + PROMPT DE IMAGEN CON PERSONAJE VARIADO
 # ================================================================
 def generar_historia_deepseek(tema, parte):
+    # Elegir un arquetipo de personaje al azar
+    personaje = random.choice(ARQUETIPOS_PERSONAJES)
+    
     if parte == 1:
         prompt = f"""Eres un INVESTIGADOR DE LEYENDAS URBANAS Y TRADICIÓN ORAL MEXICANA.
 
@@ -102,7 +122,7 @@ Formato EXACTO:
 #LeyendasMexicanas #Terror #Misterio
 
 ===== PROMPT_IMAGEN =====
-[Genera un prompt detallado para crear una imagen que represente la escena principal de esta historia. Incluye: lugar específico, hora del día, elementos del entorno (árboles, casas, caminos, niebla, etc.), colores predominantes, atmósfera (misteriosa, terrorífica), y cualquier figura o elemento importante. Sé descriptivo, visual y concreto. Escribe en español.]
+[Genera un prompt detallado para crear una imagen que represente la escena principal de esta historia. La imagen debe incluir un personaje con las siguientes características: {personaje}. Describe la escena con lujo de detalle, incluyendo lugar, hora, elementos del entorno (árboles, casas, caminos, niebla, etc.), colores predominantes, atmósfera, y la figura del personaje en su entorno. El personaje no debe mirar directamente a la cámara a menos que sea parte de la historia. **Evitar rostros genéricos, evitar poses de modelo de catálogo, evitar expresiones neutras.**]
 """
     else:
         prompt = f"""Eres un INVESTIGADOR DE LEYENDAS URBANAS Y TRADICIÓN ORAL MEXICANA.
@@ -125,12 +145,12 @@ Formato EXACTO:
 #LeyendasMexicanas #Terror #Misterio
 
 ===== PROMPT_IMAGEN =====
-[Genera un prompt detallado para crear una imagen que represente la escena principal de esta historia. Incluye: lugar específico, hora del día, elementos del entorno, colores predominantes, atmósfera, y cualquier figura o elemento importante. Sé descriptivo, visual y concreto. Escribe en español.]
+[Genera un prompt detallado para crear una imagen que represente la escena principal de esta historia. La imagen debe incluir un personaje con las siguientes características: {personaje}. Describe la escena con lujo de detalle, incluyendo lugar, hora, elementos del entorno, colores predominantes, atmósfera, y la figura del personaje en su entorno. **Evitar rostros genéricos, evitar poses de modelo de catálogo, evitar expresiones neutras.**]
 """
 
     url = "https://api.deepseek.com/v1/chat/completions"
     headers = {"Authorization": f"Bearer {DEEPSEEK_API_KEY}", "Content-Type": "application/json"}
-    payload = {"model": "deepseek-chat", "messages": [{"role": "user", "content": prompt}], "temperature": 0.85, "max_tokens": 650}
+    payload = {"model": "deepseek-chat", "messages": [{"role": "user", "content": prompt}], "temperature": 0.85, "max_tokens": 700}
     
     try:
         r = requests.post(url, headers=headers, json=payload, timeout=90)
@@ -141,9 +161,11 @@ Formato EXACTO:
             partes = respuesta.split("===== PROMPT_IMAGEN =====")
             historia = partes[0].strip()
             prompt_imagen = partes[1].strip() if len(partes) > 1 else f"Escena de terror basada en: {tema}. Paisaje nocturno."
+            # Añadir instrucciones anti-genéricas al prompt de imagen
+            prompt_imagen += " Ultradetallado, fotorealista, 8k. Evitar rostros genéricos. Evitar poses de catálogo. Evitar sonrisas neutras. Dar rasgos distintivos."
             return {"historia": historia, "prompt_imagen": prompt_imagen}
         else:
-            return {"historia": respuesta, "prompt_imagen": f"Escena de terror basada en: {tema}. Paisaje nocturno, atmósfera misteriosa."}
+            return {"historia": respuesta, "prompt_imagen": f"Escena de terror basada en: {tema}. Paisaje nocturno, atmósfera misteriosa. Ultradetallado, fotorealista, 8k. Evitar rostros genéricos."}
     except Exception as e:
         print(f"❌ Error en DeepSeek: {e}")
         return {"historia": f"🌙 {tema} (Parte {parte})\n\n[Error al generar el testimonio.]", "prompt_imagen": f"Escena de terror en {tema}"}
@@ -164,17 +186,15 @@ def agregar_llamado_parte2(texto, parte):
     return texto
 
 # ================================================================
-# GENERAR IMAGEN CON AGNES AI (USANDO PROMPT DE DEEPSEEK)
+# GENERAR IMAGEN CON AGNES AI
 # ================================================================
 def generar_imagen_agnes(prompt_imagen):
     """
     Genera una imagen con Agnes AI usando el prompt generado por DeepSeek.
     """
-    prompt_completo = f"{prompt_imagen} Ultrarrealista, 8k, hiperdetallado, estilo cinematográfico de terror, colores dominantes: negro, morado, naranja y blanco."
-    
     url = "https://apihub.agnes-ai.com/v1/images/generations"
     headers = {"Authorization": f"Bearer {AGNES_API_KEY}", "Content-Type": "application/json"}
-    payload = {"model": "agnes-image-2.1-flash", "prompt": prompt_completo, "width": 1024, "height": 1024, "num_images": 1}
+    payload = {"model": "agnes-image-2.1-flash", "prompt": prompt_imagen, "width": 1024, "height": 1024, "num_images": 1}
     
     try:
         print("🎨 Generando imagen con Agnes AI...")
@@ -212,7 +232,7 @@ def enviar_a_make(message, image_url):
 # MAIN
 # ================================================================
 def main():
-    print("👻 Iniciando Bot de Terror (Prompt personalizado por historia)")
+    print("👻 Iniciando Bot de Terror (Personajes variados)")
     print(f"📅 {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     
     if not all([DEEPSEEK_API_KEY, MAKE_WEBHOOK_URL_TERROR, AGNES_API_KEY]):
@@ -254,7 +274,7 @@ def main():
     
     texto = agregar_llamado_parte2(texto, historia["parte"])
     print("✅ Testimonio generado y llamado agregado")
-    print(f"🎨 Prompt de imagen generado: {prompt_imagen[:100]}...")
+    print(f"🎨 Prompt de imagen: {prompt_imagen[:150]}...")
     
     image_url = generar_imagen_agnes(prompt_imagen)
     
