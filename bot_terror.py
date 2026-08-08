@@ -14,27 +14,19 @@ AGNES_API_KEY = os.getenv("AGNES_API_KEY")
 ESTADO_FILE = "estado_terror.json"
 
 # ================================================================
-# TEMAS DE TERROR
+# CARGAR TEMAS DESDE JSON
 # ================================================================
-TEMAS = [
-    "casa embrujada en un pueblo mexicano",
-    "apariciones en carreteras desiertas",
-    "leyendas de hospitales abandonados",
-    "ovnis en zonas rurales",
-    "la llorona en tiempos modernos",
-    "el charro negro en caminos solitarios",
-    "fantasmas en antiguas haciendas",
-    "brujas en el campo mexicano",
-    "túneles secretos con historias ocultas",
-    "cementerios con leyendas de ultratumba",
-    "aparición en un puente viejo",
-    "el niño que habla con los muertos",
-    "la casa de los susurros",
-    "el vagón del tren fantasma",
-    "la mujer de blanco en la carretera",
-    "el pacto con el diablo en un pueblo minero",
-    "la sombra que camina sola en el desierto"
-]
+def cargar_temas():
+    try:
+        with open("temas_2000.json", "r", encoding="utf-8") as f:
+            temas = json.load(f)
+            if isinstance(temas, list) and len(temas) > 0:
+                return temas
+            else:
+                raise ValueError("El archivo no contiene una lista válida")
+    except Exception as e:
+        print(f"⚠️ Error cargando temas: {e}")
+        return ["casa embrujada en un pueblo mexicano", "apariciones en carreteras desiertas"]
 
 # ================================================================
 # ESTADO
@@ -54,53 +46,57 @@ def guardar_estado(estado):
         json.dump(estado, f, indent=2)
 
 # ================================================================
-# GENERAR HISTORIA CON DEEPSEEK (2 PARTES - REALISTA)
+# GENERAR HISTORIA CON DEEPSEEK (BASADA EN TESTIMONIOS REALES)
 # ================================================================
 def generar_historia_deepseek(tema, parte):
     if parte == 1:
-        prompt = f"""Eres un INVESTIGADOR DE LEYENDAS URBANAS MEXICANAS, NO un escritor de ficción.
+        prompt = f"""Eres un INVESTIGADOR DE LEYENDAS URBANAS Y TRADICIÓN ORAL MEXICANA.
 
-Tu tarea es DOCUMENTAR una historia de terror REALISTA basada en el siguiente tema:
+Tu tarea es DOCUMENTAR un testimonio REAL sobre el siguiente tema:
 "{tema}"
 
+IMPORTANTE: NO inventes una historia desde cero. ACTÚA como si estuvieras entrevistando a un habitante del lugar que te cuenta lo que la gente dice y ha vivido.
+
 REGLAS ESTRICTAS:
-- Ambientación: Un municipio REAL de México (investiga y elige uno con historia).
-- Narración en PRIMERA PERSONA, como si fueras un testigo o familiar de los hechos.
-- Incluye DETALLES SENSORIALES: olores (a tierra mojada, a incienso, a humedad), sonidos (pasos, susurros, el viento), texturas (frío en la piel, paredes ásperas).
-- Describe EMOCIONES: miedo, incredulidad, paranoia, escalofríos.
-- NO uses lenguaje poético ni exagerado. Sé sobrio, directo, como si estuvieras contando algo que realmente te pasó.
-- El FINAL debe ser un CLIFFHANGER que genere intriga, NO un cierre definitivo.
+- Ambientación: El lugar específico mencionado en el tema (investiga o infiere el municipio y estado).
+- Narración en PRIMERA PERSONA, como si fueras el testigo que vivió o escuchó el relato de alguien de confianza.
+- Usa frases típicas de testimonios reales: "en mi pueblo", "cuenta mi abuelo", "la gente dice", "yo mismo lo vi", "todos saben que", "desde que tengo memoria".
+- Incluye DETALLES que la gente realmente menciona al contar estas historias: olores (a incienso, a tierra mojada, a humedad), sonidos (pasos, susurros, el viento), sensaciones (frío en la nuca, escalofríos).
+- Describe las REACCIONES de la gente: miedo, incredulidad, respeto, silencio.
+- NO uses lenguaje poético ni exagerado. Sé SOBRIO y DIRECTO, como si estuvieras contando algo que realmente pasó en tu comunidad.
+- El FINAL debe ser un CLIFFHANGER: algo que quedó sin explicación, una pregunta sin respuesta, o una advertencia.
 - Al FINAL, DEBES incluir este mensaje EXACTO:
 
 "📌 ¿Qué crees que pasó después? La Parte 2 llega mañana a la misma hora. ¡No te la pierdas! 👇"
 
-Formato EXACTO:
+Formato EXACTO (copia esto):
 🌙 **El [elemento misterioso] de [municipio], [estado]**
 
-[Texto de la historia en párrafos cortos, 400 palabras, como testimonio real.]
+[Texto del testimonio en párrafos cortos, 400 palabras, como si lo contara un habitante del lugar.]
 
 📌 ¿Qué crees que pasó después? La Parte 2 llega mañana a la misma hora. ¡No te la pierdas! 👇
 
 #LeyendasMexicanas #Terror #Misterio
 """
     else:  # Parte 2
-        prompt = f"""Eres un INVESTIGADOR DE LEYENDAS URBANAS MEXICANAS.
+        prompt = f"""Eres un INVESTIGADOR DE LEYENDAS URBANAS Y TRADICIÓN ORAL MEXICANA.
 
-Tu tarea es DOCUMENTAR el DESENLACE de la historia de terror REALISTA basada en este tema:
+Tu tarea es DOCUMENTAR el DESENLACE del testimonio sobre el siguiente tema:
 "{tema}"
 
+IMPORTANTE: El desenlace debe ser lo que la gente del lugar dice que pasó realmente. Puede ser un final trágico, misterioso o sin resolver.
+
 REGLAS ESTRICTAS:
-- Ambientación: El mismo municipio de la Parte 1.
+- Ambientación: El mismo lugar de la Parte 1.
 - Narración en PRIMERA PERSONA, continuando el testimonio.
-- Incluye DETALLES SENSORIALES y EMOCIONES.
-- Da un DESENLACE: revela qué pasó realmente, el giro final, o la conclusión terrorífica.
-- Puede ser terrorífico, triste o con un final abierto pero impactante.
-- NO uses lenguaje poético. Sé sobrio y directo.
+- Usa frases como "lo que me dijeron después", "la versión que todos conocen", "dicen que al final".
+- Da un DESENLACE basado en lo que la tradición oral cuenta: puede ser que el misterio nunca se resolvió, que alguien pagó las consecuencias, o que la historia sigue viva.
+- El final debe ser impactante pero creíble.
 - Al FINAL, incluye este mensaje EXACTO:
 
 "💀 ¿Te ha pasado algo parecido? Cuéntanos tu historia en comentarios. 👇"
 
-Formato EXACTO:
+Formato EXACTO (copia esto):
 🌙 **El [elemento misterioso] de [municipio], [estado]** - Parte 2
 
 [Texto del desenlace en párrafos cortos, 400 palabras.]
@@ -120,47 +116,24 @@ Formato EXACTO:
         return r.json()["choices"][0]["message"]["content"].strip()
     except Exception as e:
         print(f"❌ Error en DeepSeek: {e}")
-        return f"🌙 {tema} (Parte {parte})\n\n[Error al generar la historia.]"
+        return f"🌙 {tema} (Parte {parte})\n\n[Error al generar el testimonio.]"
 
 # ================================================================
 # GENERAR IMAGEN CON AGNES AI (REALISTA Y PROPORCIONAL)
 # ================================================================
-def generar_imagen_agnes(tema, parte, elemento_principal=None):
-    """
-    Genera imagen con Agnes AI, con prompts mejorados para realismo y proporción.
-    elemento_principal: si se pasa, se enfatiza en la imagen (ej: "niño", "charro", "casa").
-    """
+def generar_imagen_agnes(tema, parte):
     if parte == 1:
-        if elemento_principal:
-            base_prompt = f"Escena de terror en México, {elemento_principal} como centro de atención, atmósfera realista"
-        else:
-            base_prompt = f"Escena de terror en México, {tema}, atmósfera realista"
-        
         prompt = (
-            f"{base_prompt}, "
-            "composición cinematográfica con profundidad de campo, "
-            "elemento principal nítido y en primer plano, fondo desenfocado con niebla y sombras, "
-            "iluminación dramática con luces y sombras naturales, "
-            "colores oscuros: negro, gris, rojo sangre, naranja tenue, blanco fantasmal, "
-            "estilo fotorrealista, texturas detalladas, 8k, "
-            "aspecto de fotografía de alta calidad capturada en noche de luna, "
-            "sin exageraciones, todo proporcionado según la importancia narrativa"
+            f"{tema}, escena de terror realista, atmósfera de misterio, "
+            "iluminación natural y dramática, niebla densa, colores oscuros "
+            "negro, gris, rojo tenue, estilo fotografía de documental, "
+            "sin exageraciones, todo proporcionado, 8k"
         )
-    else:  # Parte 2 - desenlace
-        if elemento_principal:
-            base_prompt = f"Revelación terrorífica en México, {elemento_principal} en el centro de la escena"
-        else:
-            base_prompt = f"Desenlace de terror en México, {tema}, momento culminante"
-        
+    else:
         prompt = (
-            f"{base_prompt}, "
-            "composición con el elemento principal en primer plano, "
-            "iluminación contrastada con destellos de luz roja y naranja, "
-            "sombras alargadas que envuelven la escena, "
-            "colores intensos: negro, rojo, morado, blanco, "
-            "estilo fotorrealista, texturas detalladas, 8k, "
-            "atmósfera de terror puro, sin elementos que distraigan, "
-            "todo proporcionado según la importancia del elemento central"
+            f"{tema}, revelación del misterio, momento culminante, "
+            "iluminación contrastada, sombras alargadas, colores intensos "
+            "negro, rojo, morado, estilo cinematográfico realista, 8k"
         )
     
     url = "https://apihub.agnes-ai.com/v1/images/generations"
@@ -183,41 +156,6 @@ def generar_imagen_agnes(tema, parte, elemento_principal=None):
         return None
 
 # ================================================================
-# EXTRAER ELEMENTO PRINCIPAL DEL TEMA (para la imagen)
-# ================================================================
-def extraer_elemento_principal(tema):
-    """
-    Intenta extraer la palabra clave del tema para enfatizarla en la imagen.
-    Ej: "casa embrujada" → "casa antigua", "el charro negro" → "charro negro".
-    """
-    palabras_clave = {
-        "casa embrujada": "casa antigua abandonada",
-        "apariciones": "figura fantasmal",
-        "hospital abandonado": "hospital viejo y oscuro",
-        "ovnis": "platillo volador metálico",
-        "la llorona": "mujer de blanco",
-        "charro negro": "jinete con sombrero negro",
-        "fantasmas": "espectro translúcido",
-        "brujas": "mujer con cabello largo y garras",
-        "túneles secretos": "entrada oscura a un túnel",
-        "cementerio": "tumbas y cruces",
-        "puente viejo": "puente oxidado",
-        "niño que habla con los muertos": "niño con mirada intensa",
-        "casa de los susurros": "casa vieja con ventanas rotas",
-        "vagón del tren fantasma": "vagón de tren oxidado",
-        "mujer de blanco": "figura femenina con vestido blanco",
-        "pacto con el diablo": "símbolo oscuro en el suelo",
-        "sombra en el desierto": "silueta en la arena"
-    }
-    
-    tema_lower = tema.lower()
-    for clave, valor in palabras_clave.items():
-        if clave in tema_lower:
-            return valor
-    # Si no coincide, devolver el primer sustantivo (simple)
-    return tema.split()[0] if tema else "figura misteriosa"
-
-# ================================================================
 # ENVIAR A MAKE.COM
 # ================================================================
 def enviar_a_make(message, image_url):
@@ -238,12 +176,16 @@ def enviar_a_make(message, image_url):
 # MAIN
 # ================================================================
 def main():
-    print("👻 Iniciando Bot de Terror")
+    print("👻 Iniciando Bot de Terror (Testimonios Reales)")
     print(f"📅 {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     
     if not all([DEEPSEEK_API_KEY, MAKE_WEBHOOK_URL_TERROR, AGNES_API_KEY]):
         print("❌ Faltan variables de entorno. Revisa los Secrets de GitHub.")
         return
+    
+    # Cargar temas desde el JSON
+    temas = cargar_temas()
+    print(f"📚 {len(temas)} temas cargados")
     
     estado = cargar_estado()
     
@@ -267,23 +209,19 @@ def main():
     
     # Si no hay tema, generar uno nuevo
     if not historia["tema"]:
-        historia["tema"] = random.choice(TEMAS)
-        historia["titulo"] = f"Historia de {historia['tema']}"
-        print(f"🌙 Nueva historia: {historia['titulo']}")
+        historia["tema"] = random.choice(temas)
+        historia["titulo"] = f"Testimonio sobre {historia['tema']}"
+        print(f"🌙 Nuevo tema: {historia['titulo']}")
     
     print(f"📖 {historia_key}: Parte {historia['parte']} - {historia['tema']}")
     
-    # Generar historia con DeepSeek
-    print("📝 Generando historia con DeepSeek...")
+    # Generar testimonio con DeepSeek
+    print("📝 Generando testimonio con DeepSeek...")
     texto = generar_historia_deepseek(historia["tema"], historia["parte"])
-    print("✅ Historia generada")
+    print("✅ Testimonio generado")
     
-    # Extraer elemento principal para enfatizar en la imagen
-    elemento = extraer_elemento_principal(historia["tema"])
-    print(f"🎯 Elemento principal destacado: {elemento}")
-    
-    # Generar imagen con Agnes AI (pasando el elemento principal)
-    image_url = generar_imagen_agnes(historia["tema"], historia["parte"], elemento)
+    # Generar imagen con Agnes AI
+    image_url = generar_imagen_agnes(historia["tema"], historia["parte"])
     
     if image_url is None:
         print("⚠️ No se pudo generar imagen. Enviando solo texto.")
@@ -296,7 +234,7 @@ def main():
     historia["parte"] += 1
     if historia["parte"] > 2:
         historia["completada"] = True
-        print("✅ Historia completada (2 partes)")
+        print("✅ Testimonio completado (2 partes)")
     
     guardar_estado(estado)
     print("🎉 Proceso completado")
