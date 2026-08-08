@@ -2,6 +2,7 @@ import requests
 import random
 import os
 import json
+import re
 from datetime import datetime
 
 # ================================================================
@@ -83,7 +84,7 @@ def obtener_tema_no_repetido(temas, estado):
     return random.choice(disponibles)
 
 # ================================================================
-# GENERAR HISTORIA CON DEEPSEEK
+# GENERAR HISTORIA CON DEEPSEEK (SIN LLAMADO)
 # ================================================================
 def generar_historia_deepseek(tema, parte):
     if parte == 1:
@@ -100,7 +101,7 @@ REGLAS ESTRICTAS:
 - Describe las REACCIONES de la gente: miedo, incredulidad, respeto.
 - Sé SOBRIO y DIRECTO.
 - El FINAL debe ser un CLIFFHANGER.
-- NO incluyas ningún llamado a la Parte 2 (yo lo agregaré después).
+- NO incluyas NINGÚN llamado a la Parte 2. NO uses frases como "mañana", "continuación", "Parte 2", etc. Yo lo agregaré después automáticamente.
 
 Formato EXACTO:
 🌙 **El [elemento misterioso] de [municipio], [estado]**
@@ -143,6 +144,46 @@ Formato EXACTO:
         return f"🌙 {tema} (Parte {parte})\n\n[Error al generar el testimonio.]"
 
 # ================================================================
+# AGREGAR LLAMADO A LA PARTE 2 (SIEMPRE, FORZADO)
+# ================================================================
+def agregar_llamado_parte2(texto, parte):
+    """Agrega un llamado a la Parte 2 SIEMPRE al final (sin condiciones)."""
+    if parte == 1:
+        llamado = random.choice(VARIANTES_FINAL_PARTE1)
+        
+        # Limpiar cualquier llamado previo que pueda haber (por si DeepSeek lo incluyó)
+        patrones = [
+            r"📌.*?Parte 2.*?",
+            r"🔮.*?continuación.*?",
+            r"👁️.*?Parte 2.*?",
+            r"🌙.*?continúa.*?",
+            r"💀.*?Parte 2.*?",
+            r"📌.*?mañana.*?",
+            r"👻.*?mañana.*?",
+            r"👇.*?mañana.*?"
+        ]
+        for patron in patrones:
+            texto = re.sub(patron, "", texto, flags=re.IGNORECASE | re.DOTALL)
+        
+        # Eliminar líneas en blanco adicionales que puedan quedar
+        texto = "\n".join(line for line in texto.split("\n") if line.strip())
+        
+        return texto + "\n\n" + llamado
+    
+    elif parte == 2:
+        llamado = "\n\n💀 ¿Te ha pasado algo parecido? Cuéntanos tu historia en comentarios. 👇"
+        patrones = [
+            r"💀.*?Cuéntanos.*?",
+            r"👇.*?comentarios.*?"
+        ]
+        for patron in patrones:
+            texto = re.sub(patron, "", texto, flags=re.IGNORECASE | re.DOTALL)
+        texto = "\n".join(line for line in texto.split("\n") if line.strip())
+        return texto + llamado
+    
+    return texto
+
+# ================================================================
 # GENERAR PROMPT DE IMAGEN BASADO EN LA HISTORIA (SEGUNDA CONSULTA)
 # ================================================================
 def generar_prompt_imagen(historia, tema, parte):
@@ -183,21 +224,6 @@ Formato de salida: solo el prompt de imagen, sin introducciones ni explicaciones
     except Exception as e:
         print(f"❌ Error generando prompt de imagen: {e}")
         return f"Escena de terror basada en: {tema}. Paisaje nocturno, atmósfera misteriosa, personaje de la historia, ultrarrealista, 8k, hiperdetallado. Evitar rostros genéricos."
-
-# ================================================================
-# AGREGAR LLAMADO A LA PARTE 2
-# ================================================================
-def agregar_llamado_parte2(texto, parte):
-    if parte == 1:
-        llamado = random.choice(VARIANTES_FINAL_PARTE1)
-        if "Parte 2" not in texto and "mañana" not in texto:
-            return texto + "\n\n" + llamado
-        return texto
-    elif parte == 2:
-        llamado = "\n\n💀 ¿Te ha pasado algo parecido? Cuéntanos tu historia en comentarios. 👇"
-        if "Cuéntanos tu historia" not in texto:
-            return texto + llamado
-    return texto
 
 # ================================================================
 # GENERAR IMAGEN CON AGNES AI
@@ -295,6 +321,8 @@ def main():
     # Generar historia
     print("📝 Generando testimonio con DeepSeek...")
     texto = generar_historia_deepseek(tema, parte)
+    
+    # Forzar el llamado a la Parte 2 (SIEMPRE)
     texto = agregar_llamado_parte2(texto, parte)
     print("✅ Testimonio generado y llamado agregado")
     
