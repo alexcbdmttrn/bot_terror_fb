@@ -14,31 +14,32 @@ AGNES_API_KEY = os.getenv("AGNES_API_KEY")
 ESTADO_FILE = "estado_terror.json"
 
 # ================================================================
-# ESTILOS VISUALES PARA IMÁGENES (ALEATORIOS)
+# 10 ESTILOS VISUALES PARA IMÁGENES (ALEATORIOS)
 # ================================================================
 ESTILOS_IMAGEN = [
-    "iluminación dramática con contraluces, profundidad de campo, estilo cinematográfico de terror, fotografía de película, colores fríos y cálidos contrastantes, 8k, hiperrealista",
-    "estilo fotorrealista, como fotografía real capturada con lente de 50mm, texturas detalladas, iluminación natural, colores sobrios y realistas, alta definición",
-    "estilo de pintura al óleo oscura, pinceladas expresivas y gruesas, atmósfera sombría, colores negros, grises y toques de naranja, textura de lienzo",
-    "estilo de fotografía documental en blanco y negro con toques de color, grano de película, sensación de archivo histórico, composición natural y espontánea",
-    "estilo de ilustración gótica, líneas marcadas y definidas, sombras profundas, colores oscuros con acentos en blanco y naranja, estilo de novela gráfica de terror",
-    "niebla densa y envolvente como elemento principal, siluetas difusas, colores desaturados con tonos grises y morados, atmósfera opresiva y misteriosa",
-    "estilo noir de alto contraste, luces y sombras extremas, siluetas recortadas, colores limitados a negro, blanco y naranja intenso, ambiente opresivo",
-    "estilo de cine de terror clásico de los años 60-70, grano de película visible, colores cálidos y fríos contrastantes, iluminación tenue, composición simétrica"
+    "estilo de cine de terror clásico de los años 60, grano de película visible, colores cálidos y fríos contrastantes, iluminación tenue, composición simétrica, atmósfera opresiva",
+    "estilo fotorrealista documental, como fotografía capturada con lente de 50mm, texturas detalladas, iluminación natural, colores sobrios y realistas, alta definición, sensación de archivo",
+    "estilo de pintura al óleo oscura, pinceladas expresivas y gruesas, atmósfera sombría, colores negros, grises y toques de naranja, textura de lienzo, estilo gótico",
+    "estilo noir de alto contraste, luces y sombras extremas, siluetas recortadas, colores limitados a negro, blanco y naranja intenso, ambiente opresivo y dramático",
+    "estilo de ilustración gótica, líneas marcadas y definidas, sombras profundas, colores oscuros con acentos en blanco y morado, estilo de novela gráfica de terror",
+    "niebla densa y envolvente como elemento principal, siluetas difusas, colores desaturados con tonos grises y morados, atmósfera opresiva y misteriosa, profundidad de campo",
+    "iluminación dramática con contraluces, profundidad de campo, estilo cinematográfico de terror moderno, fotografía de película, colores fríos y cálidos contrastantes, 8k, hiperrealista",
+    "estilo blanco y negro con un único acento de color naranja o rojo, grano de película, composición fuerte, sensación de fotografía de prensa antigua",
+    "estilo de acuarela oscura, manchas y trazos sueltos, colores negros, grises y toques de morado, atmósfera etérea y fantasmagórica, textura de papel",
+    "estilo expresionista alemán, sombras alargadas y distorsionadas, angulos forzados, colores en tonos negros, grises y amarillos pálidos, atmósfera de pesadilla"
 ]
 
 # ================================================================
-# VARIANTES PARA EL FINAL DE LA PARTE 1
+# VARIANTES PARA EL FINAL DE LA PARTE 1 (SIN SUGERIR QUE ES REAL)
 # ================================================================
 VARIANTES_FINAL_PARTE1 = [
     "📌 ¿Qué crees que pasó después? La Parte 2 llega mañana a la misma hora. ¡No te la pierdas! 👇",
     "🔮 ¿Te atreves a imaginar lo que pasó después? La continuación mañana a la misma hora. 👻",
     "👁️ ¿Qué crees que encontró? No te pierdas la Parte 2 mañana a la misma hora. 😱",
-    "🌙 La historia continúa mañana a la misma hora. ¿Estás listo para saber la verdad? 👀",
+    "🌙 La historia continúa mañana a la misma hora. ¿Estás listo para saber el desenlace? 👀",
     "💀 ¿Crees que sobrevivió? La Parte 2 te espera mañana. ¡No faltes! 😈",
     "📌 El misterio aún no termina. La Parte 2 llega mañana a la misma hora. 👇",
-    "🔥 ¿Qué pasaría si fuera cierto? Mañana la Parte 2 te dará la respuesta. 🌙",
-    "👻 La oscuridad guarda más secretos. La Parte 2 mañana a la misma hora. 🕯️",
+    "🌙 La oscuridad guarda más secretos. La Parte 2 mañana a la misma hora. 🕯️",
     "❓ ¿Tienes tu propia teoría? La Parte 2 llega mañana. ¡Te leemos en comentarios! 👇",
     "🌿 El terror no termina aquí. La Parte 2 mañana a la misma hora. 😨",
     "📌 ¿Ya sabes lo que pasó? La Parte 2 mañana te dará el desenlace. 👀",
@@ -46,13 +47,12 @@ VARIANTES_FINAL_PARTE1 = [
     "💀 ¿Qué crees que pasó realmente? La Parte 2 mañana a la misma hora. 👇",
     "👁️ La respuesta está más cerca de lo que crees. Parte 2 mañana. 😱",
     "📌 No te quedes con la duda. La Parte 2 llega mañana a la misma hora. 🌙",
-    "⚠️ ¿Y si todo esto fue real? La Parte 2 mañana te lo confirma. 😨",
     "🌑 La noche guarda el secreto. La Parte 2 llega mañana a la misma hora. 👇",
     "💬 Cuéntanos tu teoría. La Parte 2 mañana a la misma hora. 👻",
     "🔦 ¿Qué crees que había detrás de la puerta? Parte 2 mañana. 🌙",
     "🕸️ El misterio teje su telaraña. La Parte 2 mañana a la misma hora. 😱",
     "📢 ¡Atención! La Parte 2 llega mañana. No te la pierdas. 👀",
-    "🤔 ¿Tienes miedo de saber la verdad? Parte 2 mañana a la misma hora. 🌙",
+    "🤔 ¿Tienes alguna teoría? Parte 2 mañana a la misma hora. 🌙",
     "⏳ El tiempo se acaba. La Parte 2 mañana te dará el final. 👇"
 ]
 
@@ -151,7 +151,7 @@ Formato EXACTO:
         return f"🌙 {tema} (Parte {parte})\n\n[Error al generar el testimonio.]"
 
 # ================================================================
-# AGREGAR LLAMADO A LA PARTE 2 (CON VARIANTES)
+# AGREGAR LLAMADO A LA PARTE 2
 # ================================================================
 def agregar_llamado_parte2(texto, parte):
     if parte == 1:
@@ -166,28 +166,18 @@ def agregar_llamado_parte2(texto, parte):
     return texto
 
 # ================================================================
-# GENERAR IMAGEN CON AGNES AI (ESTILO ALEATORIO)
+# GENERAR IMAGEN CON AGNES AI (ESTILO ALEATORIO ENTRE 10)
 # ================================================================
 def generar_imagen_agnes(tema, parte):
-    """
-    Genera una imagen con Agnes AI usando un estilo visual aleatorio.
-    """
-    # Elegir un estilo al azar
     estilo = random.choice(ESTILOS_IMAGEN)
-    print(f"🎨 Estilo seleccionado: {estilo[:50]}...")
+    print(f"🎨 Estilo seleccionado: {estilo[:60]}...")
     
     if parte == 1:
-        base_prompt = (
-            f"Escena de terror basada en: {tema}. "
-            f"Ambientación nocturna y tenebrosa, colores dominantes: negro, morado, naranja y blanco. "
-        )
+        base = f"Escena de terror basada en: {tema}. Ambientación nocturna y tenebrosa, colores dominantes: negro, morado, naranja y blanco. "
     else:
-        base_prompt = (
-            f"Momento culminante de terror basado en: {tema}. "
-            f"Revelación o giro final, colores dominantes: negro, rojo intenso, morado y blanco. "
-        )
+        base = f"Momento culminante de terror basado en: {tema}. Revelación o giro final, colores dominantes: negro, rojo intenso, morado y blanco. "
     
-    prompt_completo = base_prompt + estilo
+    prompt_completo = base + estilo
     
     url = "https://apihub.agnes-ai.com/v1/images/generations"
     headers = {"Authorization": f"Bearer {AGNES_API_KEY}", "Content-Type": "application/json"}
@@ -229,7 +219,7 @@ def enviar_a_make(message, image_url):
 # MAIN
 # ================================================================
 def main():
-    print("👻 Iniciando Bot de Terror (Estilos Aleatorios)")
+    print("👻 Iniciando Bot de Terror (10 estilos aleatorios)")
     print(f"📅 {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     
     if not all([DEEPSEEK_API_KEY, MAKE_WEBHOOK_URL_TERROR, AGNES_API_KEY]):
@@ -264,20 +254,18 @@ def main():
     
     print(f"📖 {historia_key}: Parte {historia['parte']}")
     
-    # Generar testimonio
     print("📝 Generando testimonio con DeepSeek...")
     texto = generar_historia_deepseek(historia["tema"], historia["parte"])
     texto = agregar_llamado_parte2(texto, historia["parte"])
     print("✅ Testimonio generado y llamado agregado")
     
-    # Generar imagen (estilo aleatorio)
     image_url = generar_imagen_agnes(historia["tema"], historia["parte"])
     
     if image_url is None:
         print("⚠️ No se pudo generar imagen. Enviando solo texto.")
         enviar_a_make(texto, None)
     else:
-        print(f"✅ Imagen generada")
+        print(f"✅ Imagen generada con estilo aleatorio")
         enviar_a_make(texto, image_url)
     
     historia["parte"] += 1
