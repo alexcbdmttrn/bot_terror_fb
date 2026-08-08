@@ -1,7 +1,7 @@
 {
   "historia_a": {
-    "tema": "",
-    "parte": 1,
+    "tema": "La Llorona de la Laguna de Jalapa, Tabasco",
+    "parte": 2,
     "completada": false
   },
   "historia_b": {
@@ -9,5 +9,7 @@
     "parte": 1,
     "completada": false
   },
-  "publicados": []
+  "publicados": [
+    "La Llorona de la Laguna de Jalapa, Tabasco"
+  ]
 }
