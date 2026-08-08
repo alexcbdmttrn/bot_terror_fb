@@ -56,7 +56,7 @@ def cargar_temas():
         return ["casa embrujada en un pueblo mexicano", "apariciones en carreteras desiertas"]
 
 # ================================================================
-# ESTADO
+# ESTADO (2 historias simultáneas)
 # ================================================================
 def cargar_estado():
     try:
@@ -64,13 +64,23 @@ def cargar_estado():
             return json.load(f)
     except:
         return {
-            "historia_a": {"titulo": "", "parte": 1, "tema": "", "completada": False},
-            "historia_b": {"titulo": "", "parte": 1, "tema": "", "completada": False}
+            "historia_a": {"tema": "", "parte": 1, "completada": False},
+            "historia_b": {"tema": "", "parte": 1, "completada": False},
+            "publicados": []
         }
 
 def guardar_estado(estado):
     with open(ESTADO_FILE, "w") as f:
         json.dump(estado, f, indent=2)
+
+def obtener_tema_no_repetido(temas, estado):
+    publicados = set(estado.get("publicados", []))
+    disponibles = [t for t in temas if t not in publicados]
+    if not disponibles:
+        print("🔄 Todos los temas ya han sido publicados. Reiniciando historial.")
+        estado["publicados"] = []
+        disponibles = temas
+    return random.choice(disponibles)
 
 # ================================================================
 # GENERAR HISTORIA CON DEEPSEEK
@@ -90,7 +100,7 @@ REGLAS ESTRICTAS:
 - Describe las REACCIONES de la gente: miedo, incredulidad, respeto.
 - Sé SOBRIO y DIRECTO.
 - El FINAL debe ser un CLIFFHANGER.
-- NO incluyas ningún llamado a la Parte 2.
+- NO incluyas ningún llamado a la Parte 2 (yo lo agregaré después).
 
 Formato EXACTO:
 🌙 **El [elemento misterioso] de [municipio], [estado]**
@@ -110,7 +120,7 @@ REGLAS ESTRICTAS:
 - Narración en PRIMERA PERSONA.
 - Usa frases como "lo que me dijeron después", "la versión que todos conocen".
 - Da un DESENLACE basado en lo que la tradición oral cuenta.
-- NO incluyas ningún llamado final.
+- NO incluyas ningún llamado final (yo lo agregaré después).
 
 Formato EXACTO:
 🌙 **El [elemento misterioso] de [municipio], [estado]** - Parte 2
@@ -136,9 +146,6 @@ Formato EXACTO:
 # GENERAR PROMPT DE IMAGEN BASADO EN LA HISTORIA (SEGUNDA CONSULTA)
 # ================================================================
 def generar_prompt_imagen(historia, tema, parte):
-    """
-    Toma la historia generada y crea un prompt de imagen detallado.
-    """
     prompt = f"""Eres un EXPERTO EN DESCRIPCIÓN DE ESCENAS PARA IA GENERATIVA.
 
 Tu tarea es crear un PROMPT DE IMAGEN detallado y visual basado en la siguiente historia de terror:
@@ -157,7 +164,7 @@ Basado en la historia, crea un prompt para generar una imagen que represente la 
 REGLAS ESTRICTAS:
 - El prompt debe ser en ESPAÑOL.
 - Debe ser ULTRADETALLADO y VISUAL.
-- Debe evitar descripciones genéricas (ej: no decir "un hombre", decir "un hombre de 45 años con camisa blanca arrugada y sombrero de charro").
+- Debe evitar descripciones genéricas.
 - Debe especificar que el personaje NO mire directamente a la cámara a menos que la historia lo requiera.
 - Debe incluir instrucciones para evitar rostros genéricos, poses de catálogo y sonrisas neutras.
 
@@ -171,7 +178,6 @@ Formato de salida: solo el prompt de imagen, sin introducciones ni explicaciones
         r = requests.post(url, headers=headers, json=payload, timeout=60)
         r.raise_for_status()
         prompt_imagen = r.json()["choices"][0]["message"]["content"].strip()
-        # Añadir instrucciones de calidad
         prompt_imagen += " Ultrarrealista, 8k, hiperdetallado, estilo cinematográfico de terror. Evitar rostros genéricos, evitar poses de catálogo, evitar sonrisas neutras."
         return prompt_imagen
     except Exception as e:
@@ -237,7 +243,7 @@ def enviar_a_make(message, image_url):
 # MAIN
 # ================================================================
 def main():
-    print("👻 Iniciando Bot de Terror (Prompt de imagen en segunda consulta)")
+    print("👻 Iniciando Bot de Terror (2 historias simultáneas)")
     print(f"📅 {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     
     if not all([DEEPSEEK_API_KEY, MAKE_WEBHOOK_URL_TERROR, AGNES_API_KEY]):
@@ -249,41 +255,55 @@ def main():
     
     estado = cargar_estado()
     
+    # Determinar qué historia toca según la hora (3 PM = A, 8 PM = B)
     hora = datetime.now().hour
-    if hora == 15:
-        historia_key = "historia_a"
-    elif hora == 20 or hora == 21 or hora == 22:
-        historia_key = "historia_b"
+    if hora == 15:  # 3 PM
+        clave = "historia_a"
+    elif hora == 20:  # 8 PM
+        clave = "historia_b"
     else:
-        historia_key = random.choice(["historia_a", "historia_b"])
+        # Si se ejecuta en otro horario, elegir aleatorio (para pruebas)
+        clave = random.choice(["historia_a", "historia_b"])
     
-    historia = estado[historia_key]
+    historia = estado[clave]
+    print(f"📖 {clave}: Parte {historia['parte']} - Tema: {historia['tema'] if historia['tema'] else 'Ninguno'}")
     
+    # Si la historia está completada, resetear y elegir nuevo tema
     if historia.get("completada", False):
-        historia["titulo"] = ""
+        print(f"🔄 {clave} completada. Eligiendo nuevo tema...")
+        nuevo_tema = obtener_tema_no_repetido(temas, estado)
+        historia["tema"] = nuevo_tema
         historia["parte"] = 1
-        historia["tema"] = ""
         historia["completada"] = False
+        guardar_estado(estado)
+        print(f"🌙 Nuevo tema para {clave}: {nuevo_tema}")
     
-    if not historia["tema"]:
-        historia["tema"] = random.choice(temas)
-        historia["titulo"] = historia["tema"].split(',')[0].strip()
-        print(f"🌙 Nuevo tema: {historia['titulo']}")
+    # Si no tiene tema, elegir uno
+    if not historia.get("tema"):
+        nuevo_tema = obtener_tema_no_repetido(temas, estado)
+        historia["tema"] = nuevo_tema
+        historia["parte"] = 1
+        historia["completada"] = False
+        guardar_estado(estado)
+        print(f"🌙 Nuevo tema para {clave}: {nuevo_tema}")
     
-    print(f"📖 {historia_key}: Parte {historia['parte']}")
+    tema = historia["tema"]
+    parte = historia["parte"]
     
-    # Paso 1: Generar la historia
+    print(f"📖 Publicando {clave}: {tema} - Parte {parte}")
+    
+    # Generar historia
     print("📝 Generando testimonio con DeepSeek...")
-    texto = generar_historia_deepseek(historia["tema"], historia["parte"])
-    texto = agregar_llamado_parte2(texto, historia["parte"])
+    texto = generar_historia_deepseek(tema, parte)
+    texto = agregar_llamado_parte2(texto, parte)
     print("✅ Testimonio generado y llamado agregado")
     
-    # Paso 2: Generar prompt de imagen basado en la historia
+    # Generar prompt de imagen basado en la historia
     print("🎨 Generando prompt de imagen basado en la historia...")
-    prompt_imagen = generar_prompt_imagen(texto, historia["tema"], historia["parte"])
+    prompt_imagen = generar_prompt_imagen(texto, tema, parte)
     print(f"📝 Prompt de imagen: {prompt_imagen[:150]}...")
     
-    # Paso 3: Generar imagen con Agnes AI
+    # Generar imagen
     image_url = generar_imagen_agnes(prompt_imagen)
     
     if image_url is None:
@@ -293,12 +313,21 @@ def main():
         print(f"✅ Imagen generada con prompt personalizado")
         enviar_a_make(texto, image_url)
     
-    historia["parte"] += 1
-    if historia["parte"] > 2:
+    # Actualizar estado
+    if parte == 1:
+        # Agregar tema al historial global (solo la primera vez)
+        if tema not in estado.get("publicados", []):
+            estado["publicados"].append(tema)
+            print(f"✅ Tema agregado al historial: {tema}")
+    elif parte == 2:
+        # Marcar la historia como completada
         historia["completada"] = True
-        print("✅ Testimonio completado (2 partes)")
+        print(f"✅ {clave} completada (Parte 2 publicada)")
     
+    # Incrementar parte para la próxima ejecución
+    historia["parte"] += 1
     guardar_estado(estado)
+    
     print("🎉 Proceso completado")
 
 if __name__ == "__main__":
