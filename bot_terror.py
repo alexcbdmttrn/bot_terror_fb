@@ -14,23 +14,42 @@ AGNES_API_KEY = os.getenv("AGNES_API_KEY")
 ESTADO_FILE = "estado_terror.json"
 
 # ================================================================
-# 10 ESTILOS VISUALES PARA IMÁGENES (ALEATORIOS)
+# 10 FORMATOS DE COMPOSICIÓN PARA IMÁGENES
 # ================================================================
 ESTILOS_IMAGEN = [
-    "estilo de cine de terror clásico de los años 60, grano de película visible, colores cálidos y fríos contrastantes, iluminación tenue, composición simétrica, atmósfera opresiva",
-    "estilo fotorrealista documental, como fotografía capturada con lente de 50mm, texturas detalladas, iluminación natural, colores sobrios y realistas, alta definición, sensación de archivo",
-    "estilo de pintura al óleo oscura, pinceladas expresivas y gruesas, atmósfera sombría, colores negros, grises y toques de naranja, textura de lienzo, estilo gótico",
-    "estilo noir de alto contraste, luces y sombras extremas, siluetas recortadas, colores limitados a negro, blanco y naranja intenso, ambiente opresivo y dramático",
-    "estilo de ilustración gótica, líneas marcadas y definidas, sombras profundas, colores oscuros con acentos en blanco y morado, estilo de novela gráfica de terror",
-    "niebla densa y envolvente como elemento principal, siluetas difusas, colores desaturados con tonos grises y morados, atmósfera opresiva y misteriosa, profundidad de campo",
-    "iluminación dramática con contraluces, profundidad de campo, estilo cinematográfico de terror moderno, fotografía de película, colores fríos y cálidos contrastantes, 8k, hiperrealista",
-    "estilo blanco y negro con un único acento de color naranja o rojo, grano de película, composición fuerte, sensación de fotografía de prensa antigua",
-    "estilo de acuarela oscura, manchas y trazos sueltos, colores negros, grises y toques de morado, atmósfera etérea y fantasmagórica, textura de papel",
-    "estilo expresionista alemán, sombras alargadas y distorsionadas, angulos forzados, colores en tonos negros, grises y amarillos pálidos, atmósfera de pesadilla"
+    # Formato 1: Paisaje nocturno con camino
+    "Paisaje nocturno de México, camino de terracería que se pierde en la oscuridad, árboles secos y retorcidos a los lados, niebla baja y densa, cielo estrellado, iluminación tenue de luna, atmósfera de misterio y terror, ultrarrealista, 8k, hiperdetallado, composición cinematográfica, sin personas en primer plano, solo el paisaje como protagonista.",
+    
+    # Formato 2: Casa abandonada en la niebla
+    "Casa abandonada en un pueblo de México, fachada descascarada con ventanas rotas, puerta de madera entreabierta, niebla densa que envuelve la estructura, maleza creciendo en el patio, árboles secos alrededor, iluminación nocturna tenue, ultrarrealista, 8k, hiperdetallado, estilo cinematográfico de terror, sin personas visibles, solo el lugar y su atmósfera.",
+    
+    # Formato 3: Bosque de árboles retorcidos
+    "Bosque denso de árboles retorcidos y sin hojas en México, niebla baja y espesa entre los troncos, rocas cubiertas de musgo, arbustos secos, luz de luna filtrándose entre las ramas, atmósfera opresiva y terrorífica, ultrarrealista, 8k, hiperdetallado, sin personas en primer plano, solo el bosque como protagonista.",
+    
+    # Formato 4: Carretera desierta con neblina
+    "Carretera desierta en México, asfalto agrietado, neblina densa que oculta el horizonte, árboles secos y arbustos a los lados, un vehículo abandonado en la cuneta cubierto de óxido, iluminación tenue de amanecer o atardecer, ultrarrealista, 8k, hiperdetallado, composición cinematográfica, sin personas en primer plano.",
+    
+    # Formato 5: Cementerio antiguo al atardecer
+    "Cementerio antiguo en México, cruces de piedra cubiertas de musgo, flores marchitas en algunas tumbas, árboles secos alrededor, cielo de atardecer con tonos naranja y morado, niebla baja que se desliza entre las tumbas, atmósfera de terror y misterio, ultrarrealista, 8k, hiperdetallado, sin personas visibles.",
+    
+    # Formato 6: Río o lago oscuro con reflejos
+    "Río de aguas oscuras y tranquilas en México, vegetación densa en las orillas, árboles con ramas que tocan el agua, reflejos de la luna en la superficie, niebla baja que se eleva desde el agua, atmósfera de misterio y terror, ultrarrealista, 8k, hiperdetallado, sin personas en primer plano.",
+    
+    # Formato 7: Montañas y barrancas con neblina
+    "Paisaje montañoso de México, barrancas profundas cubiertas de neblina, vegetación árida y seca, cielo tormentoso con nubes oscuras, iluminación dramática con rayos de luz atravesando las nubes, ultrarrealista, 8k, hiperdetallado, sin personas visibles, solo el paisaje como protagonista.",
+    
+    # Formato 8: Pueblo fantasma al amanecer
+    "Pueblo fantasma en México, calles de tierra y polvo, edificios abandonados con paredes descascaradas, ventanas sin vidrio, vegetación creciendo en las estructuras, amanecer con luz tenue y dorada, atmósfera de abandono y misterio, ultrarrealista, 8k, hiperdetallado, sin personas visibles.",
+    
+    # Formato 9: Cueva o gruta oscura
+    "Cueva profunda en México, formaciones rocosas de estalactitas y estalagmitas, oscuridad predominante con luz tenue que entra desde la entrada, sombras alargadas, atmósfera opresiva y terrorífica, ultrarrealista, 8k, hiperdetallado, sin personas en primer plano.",
+    
+    # Formato 10: Puente viejo sobre río seco
+    "Puente de piedra viejo en México, arco de piedra cubierto de musgo, río seco con piedras y arena, vegetación seca y árboles retorcidos alrededor, niebla baja y cielo gris, atmósfera de abandono y misterio, ultrarrealista, 8k, hiperdetallado, sin personas visibles."
 ]
 
 # ================================================================
-# VARIANTES PARA EL FINAL DE LA PARTE 1 (SIN SUGERIR QUE ES REAL)
+# VARIANTES PARA EL FINAL DE LA PARTE 1
 # ================================================================
 VARIANTES_FINAL_PARTE1 = [
     "📌 ¿Qué crees que pasó después? La Parte 2 llega mañana a la misma hora. ¡No te la pierdas! 👇",
@@ -166,18 +185,21 @@ def agregar_llamado_parte2(texto, parte):
     return texto
 
 # ================================================================
-# GENERAR IMAGEN CON AGNES AI (ESTILO ALEATORIO ENTRE 10)
+# GENERAR IMAGEN CON AGNES AI (10 FORMATOS DE COMPOSICIÓN)
 # ================================================================
 def generar_imagen_agnes(tema, parte):
-    estilo = random.choice(ESTILOS_IMAGEN)
-    print(f"🎨 Estilo seleccionado: {estilo[:60]}...")
+    """
+    Genera una imagen con Agnes AI usando uno de los 10 formatos de composición.
+    """
+    formato = random.choice(ESTILOS_IMAGEN)
+    print(f"🎨 Formato seleccionado: {formato[:60]}...")
     
     if parte == 1:
-        base = f"Escena de terror basada en: {tema}. Ambientación nocturna y tenebrosa, colores dominantes: negro, morado, naranja y blanco. "
+        base = f"Escena de terror basada en: {tema}. "
     else:
-        base = f"Momento culminante de terror basado en: {tema}. Revelación o giro final, colores dominantes: negro, rojo intenso, morado y blanco. "
+        base = f"Momento culminante de terror basado en: {tema}. "
     
-    prompt_completo = base + estilo
+    prompt_completo = base + formato
     
     url = "https://apihub.agnes-ai.com/v1/images/generations"
     headers = {"Authorization": f"Bearer {AGNES_API_KEY}", "Content-Type": "application/json"}
@@ -219,7 +241,7 @@ def enviar_a_make(message, image_url):
 # MAIN
 # ================================================================
 def main():
-    print("👻 Iniciando Bot de Terror (10 estilos aleatorios)")
+    print("👻 Iniciando Bot de Terror (10 formatos de composición)")
     print(f"📅 {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     
     if not all([DEEPSEEK_API_KEY, MAKE_WEBHOOK_URL_TERROR, AGNES_API_KEY]):
@@ -265,7 +287,7 @@ def main():
         print("⚠️ No se pudo generar imagen. Enviando solo texto.")
         enviar_a_make(texto, None)
     else:
-        print(f"✅ Imagen generada con estilo aleatorio")
+        print(f"✅ Imagen generada con formato aleatorio")
         enviar_a_make(texto, image_url)
     
     historia["parte"] += 1
