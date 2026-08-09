@@ -2,8 +2,8 @@ name: Bot Terror - Publicación
 
 on:
   schedule:
-    - cron: '0 21 * * *'   # 3:00 PM CDMX
-    - cron: '0 2 * * *'    # 8:00 PM CDMX (2 AM UTC = 8 PM CDMX)
+    - cron: '0 21 * * *'   # 3:00 PM CDMX (21:00 UTC)
+    - cron: '0 2 * * *'    # 8:00 PM CDMX (02:00 UTC del día siguiente)
   workflow_dispatch:
 
 jobs:
@@ -20,7 +20,7 @@ jobs:
 
       - name: Instalar dependencias
         run: |
-          pip install requests
+          pip install requests pytz
 
       - name: Ejecutar bot de terror
         env:
