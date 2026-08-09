@@ -4,6 +4,7 @@ import os
 import json
 import re
 from datetime import datetime
+import pytz  # Necesario para zona horaria de CDMX
 
 # ================================================================
 # CONFIGURACIÓN
@@ -275,15 +276,20 @@ def main():
     estado = cargar_estado()
     print(f"📖 Estado cargado: {estado}")
     
-    # Determinar qué historia toca según la hora (3 PM = A, 8 PM = B)
-    hora = datetime.now().hour
-    if hora == 15:
+    # ============================================================
+    # CORRECCIÓN: Usar hora de CDMX
+    # ============================================================
+    cdmx = pytz.timezone('America/Mexico_City')
+    hora_cdmx = datetime.now(cdmx).hour
+    
+    # Determinar qué historia toca según la hora en CDMX
+    if hora_cdmx == 15:  # 3 PM
         clave = "historia_a"
-    elif hora == 20:
+    elif hora_cdmx == 20:  # 8 PM
         clave = "historia_b"
     else:
         clave = random.choice(["historia_a", "historia_b"])
-        print(f"⚠️ Horario no programado, eligiendo aleatorio: {clave}")
+        print(f"⚠️ Horario no programado (hora CDMX: {hora_cdmx}), eligiendo aleatorio: {clave}")
     
     historia = estado[clave]
     print(f"📖 {clave}: Parte {historia['parte']} - Tema: {historia['tema'] if historia['tema'] else 'Ninguno'}")
@@ -295,7 +301,7 @@ def main():
         historia["tema"] = nuevo_tema
         historia["parte"] = 1
         historia["completada"] = False
-        guardar_estado(estado)  # Guardar después de asignar nuevo tema
+        guardar_estado(estado)
         print(f"🌙 Nuevo tema para {clave}: {nuevo_tema}")
     
     # Si no tiene tema, elegir uno
@@ -304,7 +310,7 @@ def main():
         historia["tema"] = nuevo_tema
         historia["parte"] = 1
         historia["completada"] = False
-        guardar_estado(estado)  # Guardar después de asignar nuevo tema
+        guardar_estado(estado)
         print(f"🌙 Nuevo tema para {clave}: {nuevo_tema}")
     
     tema = historia["tema"]
@@ -346,7 +352,7 @@ def main():
     
     # Incrementar parte para la próxima ejecución
     historia["parte"] += 1
-    guardar_estado(estado)  # Guardar al final
+    guardar_estado(estado)
     print("🎉 Proceso completado")
     print(f"📖 Estado final: {estado}")
 
