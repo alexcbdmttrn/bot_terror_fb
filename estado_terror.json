@@ -5,12 +5,13 @@
     "completada": false
   },
   "historia_b": {
-    "tema": "",
-    "parte": 1,
+    "tema": "El fantasma del Paseo de Montejo, Mérida",
+    "parte": 2,
     "completada": false
   },
   "publicados": [
     "La Llorona de la Laguna de Jalapa, Tabasco",
-    "El eco de los muros en la Calle de los Sapos, Puebla"
+    "El eco de los muros en la Calle de los Sapos, Puebla",
+    "El fantasma del Paseo de Montejo, Mérida"
   ]
 }
