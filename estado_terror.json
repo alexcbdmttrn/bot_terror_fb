@@ -1,7 +1,7 @@
 {
   "historia_a": {
-    "tema": "",
-    "parte": 1,
+    "tema": "El eco de los muros en la Calle de los Sapos, Puebla",
+    "parte": 2,
     "completada": false
   },
   "historia_b": {
@@ -10,6 +10,7 @@
     "completada": false
   },
   "publicados": [
-    "La Llorona de la Laguna de Jalapa, Tabasco"
+    "La Llorona de la Laguna de Jalapa, Tabasco",
+    "El eco de los muros en la Calle de los Sapos, Puebla"
   ]
 }
