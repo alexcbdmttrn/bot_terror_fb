@@ -1,9 +1,9 @@
-name: Bot Terror - Publicación
+name: Bot Terror - Publicacion
 
 on:
   schedule:
     - cron: '0 21 * * *'   # 3:00 PM CDMX (21:00 UTC)
-    - cron: '0 2 * * *'    # 8:00 PM CDMX (02:00 UTC del día siguiente)
+    - cron: '0 2 * * *'    # 8:00 PM CDMX (02:00 UTC)
   workflow_dispatch:
 
 jobs:
@@ -12,6 +12,8 @@ jobs:
     steps:
       - name: Checkout repositorio
         uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Configurar Python
         uses: actions/setup-python@v5
@@ -28,3 +30,11 @@ jobs:
           MAKE_WEBHOOK_URL_TERROR: ${{ secrets.MAKE_WEBHOOK_URL_TERROR }}
           AGNES_API_KEY: ${{ secrets.AGNES_API_KEY }}
         run: python bot_terror.py
+
+      - name: Guardar estado en el repositorio
+        run: |
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+          git add estado_terror.json
+          git commit -m "update: estado de historias [skip ci]" || echo "Sin cambios"
+          git push
