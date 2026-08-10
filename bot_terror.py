@@ -4,7 +4,7 @@ import os
 import json
 import re
 from datetime import datetime
-import pytz  # Necesario para zona horaria de CDMX
+import pytz
 
 # ================================================================
 # CONFIGURACIÓN
@@ -58,7 +58,7 @@ def cargar_temas():
         return ["casa embrujada en un pueblo mexicano", "apariciones en carreteras desiertas"]
 
 # ================================================================
-# ESTADO (con guardado forzado)
+# ESTADO
 # ================================================================
 def cargar_estado():
     try:
@@ -84,6 +84,50 @@ def obtener_tema_no_repetido(temas, estado):
         estado["publicados"] = []
         disponibles = temas
     return random.choice(disponibles)
+
+# ================================================================
+# GENERAR PROMPT DE IMAGEN OPTIMIZADO PARA FACEBOOK (Vertical)
+# ================================================================
+def generar_prompt_imagen(historia, tema, parte):
+    """
+    Genera un prompt detallado para imágenes verticales (1080x1350) 
+    optimizado para Facebook móvil.
+    """
+    prompt = f"""Eres un EXPERTO EN DIRECCIÓN DE FOTOGRAFÍA Y REDES SOCIALES.
+
+Genera un PROMPT DE IMAGEN en ESPAÑOL para crear una foto vertical (4:5) de alta calidad para Facebook.
+
+Basado en la siguiente historia de terror:
+===== HISTORIA =====
+{historia}
+===== FIN DE LA HISTORIA =====
+
+REGLAS ESTRICTAS:
+- La imagen debe ser VERTICAL (proporción 4:5, como para móvil).
+- Enfoque en ROSTROS con EMOCIONES FUERTES (miedo, sorpresa, terror).
+- Colores contrastantes: NEGRO, ROJO, NARANJA, BLANCO.
+- Escenario nocturno, callejones, niebla, edificios coloniales, etc.
+- Estilo: "fotografía cinematográfica, hiperrealista, 4k, ultradetallado".
+- SIN sangre, SIN zombies, SIN gore.
+- Las personas deben ser MEXICANAS de aspecto común, expresión natural.
+- La imagen debe ser tan realista que parezca una foto real.
+
+Formato de salida: SOLO el prompt de imagen, sin texto adicional.
+"""
+    url = "https://api.deepseek.com/v1/chat/completions"
+    headers = {"Authorization": f"Bearer {DEEPSEEK_API_KEY}", "Content-Type": "application/json"}
+    payload = {"model": "deepseek-chat", "messages": [{"role": "user", "content": prompt}], "temperature": 0.7, "max_tokens": 400}
+    
+    try:
+        r = requests.post(url, headers=headers, json=payload, timeout=60)
+        r.raise_for_status()
+        prompt_imagen = r.json()["choices"][0]["message"]["content"].strip()
+        # Refuerzo de calidad para Facebook
+        prompt_imagen += " Vertical format 4:5, cinematic photography, hyperrealistic, 4k, ultra detailed, perfect for Facebook feed."
+        return prompt_imagen
+    except Exception as e:
+        print(f"❌ Error generando prompt de imagen: {e}")
+        return f"Retrato vertical de terror en México, persona con expresión de miedo, callejón oscuro, niebla, colores rojo y negro, estilo cinematográfico, hiperrealista, 4k, formato 4:5 para Facebook."
 
 # ================================================================
 # GENERAR HISTORIA CON DEEPSEEK (SIN LLAMADO)
@@ -178,68 +222,33 @@ def agregar_llamado_parte2(texto, parte):
     return texto
 
 # ================================================================
-# GENERAR PROMPT DE IMAGEN
+# GENERAR IMAGEN CON AGNES AI (VERTICAL 1080x1350)
 # ================================================================
-def generar_prompt_imagen(historia, tema, parte):
-    prompt = f"""Eres un EXPERTO EN DESCRIPCIÓN DE ESCENAS PARA IA GENERATIVA.
-
-Tu tarea es crear un PROMPT DE IMAGEN detallado y visual basado en la siguiente historia de terror:
-
-===== HISTORIA =====
-{historia}
-===== FIN DE LA HISTORIA =====
-
-Basado en la historia, crea un prompt para generar una imagen que represente la escena principal, incluyendo:
-
-1. **LUGAR Y AMBIENTACIÓN**: Describe el lugar exacto con detalles visuales.
-2. **PERSONAJE(S)**: Describe al personaje principal tal como aparece en la historia.
-3. **ELEMENTOS CLAVE**: Objetos o detalles importantes que aparecen en la historia.
-4. **ATMOSFERA**: Estado de ánimo, colores predominantes, estilo de iluminación.
-
-REGLAS ESTRICTAS:
-- Prompt en ESPAÑOL.
-- ULTRADETALLADO y VISUAL.
-- Evitar descripciones genéricas.
-- El personaje NO debe mirar directamente a la cámara.
-- Incluir instrucciones para evitar rostros genéricos y poses de catálogo.
-
-Formato de salida: solo el prompt de imagen.
-"""
-    url = "https://api.deepseek.com/v1/chat/completions"
-    headers = {"Authorization": f"Bearer {DEEPSEEK_API_KEY}", "Content-Type": "application/json"}
-    payload = {"model": "deepseek-chat", "messages": [{"role": "user", "content": prompt}], "temperature": 0.7, "max_tokens": 400}
-    
-    try:
-        r = requests.post(url, headers=headers, json=payload, timeout=60)
-        r.raise_for_status()
-        prompt_imagen = r.json()["choices"][0]["message"]["content"].strip()
-        prompt_imagen += " Ultrarrealista, 8k, hiperdetallado, estilo cinematográfico de terror. Evitar rostros genéricos, evitar poses de catálogo, evitar sonrisas neutras."
-        return prompt_imagen
-    except Exception as e:
-        print(f"❌ Error generando prompt de imagen: {e}")
-        return f"Escena de terror basada en: {tema}. Paisaje nocturno, atmósfera misteriosa, ultrarrealista, 8k, hiperdetallado. Evitar rostros genéricos."
-
-# ================================================================
-# GENERAR IMAGEN CON AGNES AI
-# ================================================================
-def generar_imagen_agnes(prompt_imagen):
+def generar_imagen_agnes(prompt, width=1080, height=1350):
+    prompt_limpio = prompt[:500]  # Limitar longitud
     url = "https://apihub.agnes-ai.com/v1/images/generations"
     headers = {"Authorization": f"Bearer {AGNES_API_KEY}", "Content-Type": "application/json"}
-    payload = {"model": "agnes-image-2.1-flash", "prompt": prompt_imagen, "width": 1024, "height": 1024, "num_images": 1}
+    payload = {
+        "model": "agnes-image-2.1-flash",
+        "prompt": prompt_limpio,
+        "width": width,
+        "height": height,
+        "num_images": 1
+    }
     
     try:
-        print("🎨 Generando imagen con Agnes AI...")
+        print("🎨 Generando imagen vertical para Facebook...")
         response = requests.post(url, headers=headers, json=payload, timeout=90)
         if response.status_code == 200:
             data = response.json()
             image_url = data['data'][0]['url']
-            print("✅ Imagen generada")
+            print("✅ Imagen generada (1080x1350)")
             return image_url
         else:
-            print(f"❌ Error en Agnes AI: {response.status_code}")
+            print(f"❌ Error en Agnes AI: {response.status_code} - {response.text}")
             return None
     except Exception as e:
-        print(f"❌ Error: {e}")
+        print(f"❌ Error de conexión con Agnes AI: {e}")
         return None
 
 # ================================================================
@@ -263,7 +272,7 @@ def enviar_a_make(message, image_url):
 # MAIN
 # ================================================================
 def main():
-    print("👻 Iniciando Bot de Terror (2 historias simultáneas)")
+    print("👻 Iniciando Bot de Terror (Vertical 1080x1350)")
     print(f"📅 {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     
     if not all([DEEPSEEK_API_KEY, MAKE_WEBHOOK_URL_TERROR, AGNES_API_KEY]):
@@ -276,16 +285,13 @@ def main():
     estado = cargar_estado()
     print(f"📖 Estado cargado: {estado}")
     
-    # ============================================================
-    # CORRECCIÓN: Usar hora de CDMX
-    # ============================================================
+    # Usar hora de CDMX
     cdmx = pytz.timezone('America/Mexico_City')
     hora_cdmx = datetime.now(cdmx).hour
     
-    # Determinar qué historia toca según la hora en CDMX
-    if hora_cdmx == 15:  # 3 PM
+    if hora_cdmx == 15:
         clave = "historia_a"
-    elif hora_cdmx == 20:  # 8 PM
+    elif hora_cdmx == 20:
         clave = "historia_b"
     else:
         clave = random.choice(["historia_a", "historia_b"])
@@ -294,7 +300,6 @@ def main():
     historia = estado[clave]
     print(f"📖 {clave}: Parte {historia['parte']} - Tema: {historia['tema'] if historia['tema'] else 'Ninguno'}")
     
-    # Si la historia está completada, resetear y elegir nuevo tema
     if historia.get("completada", False):
         print(f"🔄 {clave} completada. Eligiendo nuevo tema...")
         nuevo_tema = obtener_tema_no_repetido(temas, estado)
@@ -304,7 +309,6 @@ def main():
         guardar_estado(estado)
         print(f"🌙 Nuevo tema para {clave}: {nuevo_tema}")
     
-    # Si no tiene tema, elegir uno
     if not historia.get("tema"):
         nuevo_tema = obtener_tema_no_repetido(temas, estado)
         historia["tema"] = nuevo_tema
@@ -321,24 +325,22 @@ def main():
     # Generar historia
     print("📝 Generando testimonio con DeepSeek...")
     texto = generar_historia_deepseek(tema, parte)
-    
-    # Forzar el llamado a la Parte 2 (SIEMPRE)
     texto = agregar_llamado_parte2(texto, parte)
     print("✅ Testimonio generado y llamado agregado")
     
-    # Generar prompt de imagen basado en la historia
-    print("🎨 Generando prompt de imagen basado en la historia...")
+    # Generar prompt de imagen optimizado para Facebook (vertical)
+    print("🎨 Generando prompt de imagen vertical...")
     prompt_imagen = generar_prompt_imagen(texto, tema, parte)
     print(f"📝 Prompt de imagen: {prompt_imagen[:150]}...")
     
-    # Generar imagen
-    image_url = generar_imagen_agnes(prompt_imagen)
+    # Generar imagen vertical (1080x1350)
+    image_url = generar_imagen_agnes(prompt_imagen, width=1080, height=1350)
     
     if image_url is None:
         print("⚠️ No se pudo generar imagen. Enviando solo texto.")
         enviar_a_make(texto, None)
     else:
-        print(f"✅ Imagen generada con prompt personalizado")
+        print(f"✅ Imagen vertical generada: {image_url}")
         enviar_a_make(texto, image_url)
     
     # Actualizar estado
@@ -350,7 +352,6 @@ def main():
         historia["completada"] = True
         print(f"✅ {clave} completada (Parte 2 publicada)")
     
-    # Incrementar parte para la próxima ejecución
     historia["parte"] += 1
     guardar_estado(estado)
     print("🎉 Proceso completado")
