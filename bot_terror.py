@@ -27,12 +27,6 @@ VARIANTES_FINAL_PARTE1 = [
     "📌 El misterio aún no termina. La Parte 2 llega mañana a la misma hora. 👇",
     "🌙 La oscuridad guarda más secretos. La Parte 2 mañana a la misma hora. 🕯️",
     "❓ ¿Tienes tu propia teoría? La Parte 2 llega mañana. ¡Te leemos en comentarios! 👇",
-    "🌿 El terror no termina aquí. La Parte 2 mañana a la misma hora. 😨",
-    "📌 ¿Ya sabes lo que pasó? La Parte 2 mañana te dará el desenlace. 👀",
-    "🕯️ La historia aún respira. La Parte 2 llega mañana a la misma hora. 🌙",
-    "💀 ¿Qué crees que pasó realmente? La Parte 2 mañana a la misma hora. 👇",
-    "👁️ La respuesta está más cerca de lo que crees. Parte 2 mañana. 😱",
-    "📌 No te quedes con la duda. La Parte 2 llega mañana a la misma hora. 🌙",
     "🌑 La noche guarda el secreto. La Parte 2 llega mañana a la misma hora. 👇",
     "💬 Cuéntanos tu teoría. La Parte 2 mañana a la misma hora. 👻",
     "🔦 ¿Qué crees que había detrás de la puerta? Parte 2 mañana. 🌙",
@@ -58,11 +52,11 @@ def cargar_temas():
         return ["casa embrujada en un pueblo mexicano", "apariciones en carreteras desiertas"]
 
 # ================================================================
-# ESTADO
+# ESTADO (con guardado mejorado)
 # ================================================================
 def cargar_estado():
     try:
-        with open(ESTADO_FILE, "r") as f:
+        with open(ESTADO_FILE, "r", encoding="utf-8") as f:
             return json.load(f)
     except:
         return {
@@ -72,8 +66,8 @@ def cargar_estado():
         }
 
 def guardar_estado(estado):
-    with open(ESTADO_FILE, "w") as f:
-        json.dump(estado, f, indent=2)
+    with open(ESTADO_FILE, "w", encoding="utf-8") as f:
+        json.dump(estado, f, indent=2, ensure_ascii=False)
     print(f"✅ Estado guardado correctamente en {ESTADO_FILE}")
 
 def obtener_tema_no_repetido(temas, estado):
@@ -89,18 +83,8 @@ def obtener_tema_no_repetido(temas, estado):
 # GENERAR PROMPT DE IMAGEN OPTIMIZADO PARA FACEBOOK (Vertical)
 # ================================================================
 def generar_prompt_imagen(historia, tema, parte):
-    """
-    Genera un prompt detallado para imágenes verticales (1080x1350) 
-    optimizado para Facebook móvil.
-    """
-    prompt = f"""Eres un EXPERTO EN DIRECCIÓN DE FOTOGRAFÍA Y REDES SOCIALES.
-
-Genera un PROMPT DE IMAGEN en ESPAÑOL para crear una foto vertical (4:5) de alta calidad para Facebook.
-
-Basado en la siguiente historia de terror:
-===== HISTORIA =====
-{historia}
-===== FIN DE LA HISTORIA =====
+    prompt = f"""Genera un PROMPT DE IMAGEN en ESPAÑOL para crear una foto vertical (4:5) de alta calidad para Facebook.
+Basado en la historia: {historia[:300]}
 
 REGLAS ESTRICTAS:
 - La imagen debe ser VERTICAL (proporción 4:5, como para móvil).
@@ -122,15 +106,14 @@ Formato de salida: SOLO el prompt de imagen, sin texto adicional.
         r = requests.post(url, headers=headers, json=payload, timeout=60)
         r.raise_for_status()
         prompt_imagen = r.json()["choices"][0]["message"]["content"].strip()
-        # Refuerzo de calidad para Facebook
-        prompt_imagen += " Vertical format 4:5, cinematic photography, hyperrealistic, 4k, ultra detailed, perfect for Facebook feed."
+        prompt_imagen += " Vertical format 4:5, cinematic photography, hyperrealistic, 4k, ultra detailed, no text, no words."
         return prompt_imagen
     except Exception as e:
         print(f"❌ Error generando prompt de imagen: {e}")
-        return f"Retrato vertical de terror en México, persona con expresión de miedo, callejón oscuro, niebla, colores rojo y negro, estilo cinematográfico, hiperrealista, 4k, formato 4:5 para Facebook."
+        return "Retrato vertical de terror en México, persona con expresión de miedo, callejón oscuro, niebla, estilo cinematográfico, 4k, no text"
 
 # ================================================================
-# GENERAR HISTORIA CON DEEPSEEK (SIN LLAMADO)
+# GENERAR HISTORIA CON DEEPSEEK (max_tokens = 1200)
 # ================================================================
 def generar_historia_deepseek(tema, parte):
     if parte == 1:
@@ -179,7 +162,8 @@ Formato EXACTO:
 
     url = "https://api.deepseek.com/v1/chat/completions"
     headers = {"Authorization": f"Bearer {DEEPSEEK_API_KEY}", "Content-Type": "application/json"}
-    payload = {"model": "deepseek-chat", "messages": [{"role": "user", "content": prompt}], "temperature": 0.85, "max_tokens": 650}
+    # 🔥 max_tokens aumentado a 1200 para evitar textos cortados
+    payload = {"model": "deepseek-chat", "messages": [{"role": "user", "content": prompt}], "temperature": 0.85, "max_tokens": 1200}
     
     try:
         r = requests.post(url, headers=headers, json=payload, timeout=90)
@@ -195,6 +179,7 @@ Formato EXACTO:
 def agregar_llamado_parte2(texto, parte):
     if parte == 1:
         llamado = random.choice(VARIANTES_FINAL_PARTE1)
+        # Limpiar cualquier llamado previo
         patrones = [
             r"📌.*?Parte 2.*?",
             r"🔮.*?continuación.*?",
@@ -225,7 +210,7 @@ def agregar_llamado_parte2(texto, parte):
 # GENERAR IMAGEN CON AGNES AI (VERTICAL 1080x1350)
 # ================================================================
 def generar_imagen_agnes(prompt, width=1080, height=1350):
-    prompt_limpio = prompt[:500]  # Limitar longitud
+    prompt_limpio = prompt[:500]
     url = "https://apihub.agnes-ai.com/v1/images/generations"
     headers = {"Authorization": f"Bearer {AGNES_API_KEY}", "Content-Type": "application/json"}
     payload = {
@@ -245,7 +230,7 @@ def generar_imagen_agnes(prompt, width=1080, height=1350):
             print("✅ Imagen generada (1080x1350)")
             return image_url
         else:
-            print(f"❌ Error en Agnes AI: {response.status_code} - {response.text}")
+            print(f"❌ Error en Agnes AI: {response.status_code}")
             return None
     except Exception as e:
         print(f"❌ Error de conexión con Agnes AI: {e}")
@@ -285,31 +270,34 @@ def main():
     estado = cargar_estado()
     print(f"📖 Estado cargado: {estado}")
     
-    # Usar hora de CDMX
+    # ================================================================
+    # USAR RANGOS DE HORAS (CORRECCIÓN DE GEMINI)
+    # ================================================================
     cdmx = pytz.timezone('America/Mexico_City')
     hora_cdmx = datetime.now(cdmx).hour
+    print(f"🕒 Hora en CDMX: {hora_cdmx}:00 hs")
     
-    if hora_cdmx == 15:
+    # Selección robusta del bloque según el rango de horario
+    if 13 <= hora_cdmx <= 17:  # 1 PM a 5 PM → historia_a (3 PM)
         clave = "historia_a"
-    elif hora_cdmx == 20:
+    elif 19 <= hora_cdmx <= 23:  # 7 PM a 11 PM → historia_b (8 PM)
         clave = "historia_b"
     else:
-        clave = random.choice(["historia_a", "historia_b"])
-        print(f"⚠️ Horario no programado (hora CDMX: {hora_cdmx}), eligiendo aleatorio: {clave}")
+        # Si está fuera de rango, elegir la que no esté completada
+        if not estado["historia_a"]["completada"] and estado["historia_a"].get("tema"):
+            clave = "historia_a"
+        elif not estado["historia_b"]["completada"] and estado["historia_b"].get("tema"):
+            clave = "historia_b"
+        else:
+            clave = random.choice(["historia_a", "historia_b"])
+        print(f"⚠️ Horario no programado (hora CDMX: {hora_cdmx}), eligiendo: {clave}")
     
     historia = estado[clave]
     print(f"📖 {clave}: Parte {historia['parte']} - Tema: {historia['tema'] if historia['tema'] else 'Ninguno'}")
     
-    if historia.get("completada", False):
-        print(f"🔄 {clave} completada. Eligiendo nuevo tema...")
-        nuevo_tema = obtener_tema_no_repetido(temas, estado)
-        historia["tema"] = nuevo_tema
-        historia["parte"] = 1
-        historia["completada"] = False
-        guardar_estado(estado)
-        print(f"🌙 Nuevo tema para {clave}: {nuevo_tema}")
-    
-    if not historia.get("tema"):
+    # Si la historia está completada o no tiene tema, asignar nuevo tema
+    if historia.get("completada", False) or not historia.get("tema"):
+        print(f"🔄 {clave} completada o sin tema. Eligiendo nuevo tema...")
         nuevo_tema = obtener_tema_no_repetido(temas, estado)
         historia["tema"] = nuevo_tema
         historia["parte"] = 1
@@ -328,7 +316,7 @@ def main():
     texto = agregar_llamado_parte2(texto, parte)
     print("✅ Testimonio generado y llamado agregado")
     
-    # Generar prompt de imagen optimizado para Facebook (vertical)
+    # Generar prompt de imagen vertical
     print("🎨 Generando prompt de imagen vertical...")
     prompt_imagen = generar_prompt_imagen(texto, tema, parte)
     print(f"📝 Prompt de imagen: {prompt_imagen[:150]}...")
@@ -348,11 +336,12 @@ def main():
         if tema not in estado.get("publicados", []):
             estado["publicados"].append(tema)
             print(f"✅ Tema agregado al historial: {tema}")
+        historia["parte"] = 2
+        print(f"✅ {clave} pasa a Parte 2")
     elif parte == 2:
         historia["completada"] = True
         print(f"✅ {clave} completada (Parte 2 publicada)")
     
-    historia["parte"] += 1
     guardar_estado(estado)
     print("🎉 Proceso completado")
     print(f"📖 Estado final: {estado}")
