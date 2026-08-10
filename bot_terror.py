@@ -162,7 +162,6 @@ Formato EXACTO:
 
     url = "https://api.deepseek.com/v1/chat/completions"
     headers = {"Authorization": f"Bearer {DEEPSEEK_API_KEY}", "Content-Type": "application/json"}
-    # 🔥 max_tokens aumentado a 1200 para evitar textos cortados
     payload = {"model": "deepseek-chat", "messages": [{"role": "user", "content": prompt}], "temperature": 0.85, "max_tokens": 1200}
     
     try:
@@ -179,7 +178,6 @@ Formato EXACTO:
 def agregar_llamado_parte2(texto, parte):
     if parte == 1:
         llamado = random.choice(VARIANTES_FINAL_PARTE1)
-        # Limpiar cualquier llamado previo
         patrones = [
             r"📌.*?Parte 2.*?",
             r"🔮.*?continuación.*?",
@@ -277,13 +275,11 @@ def main():
     hora_cdmx = datetime.now(cdmx).hour
     print(f"🕒 Hora en CDMX: {hora_cdmx}:00 hs")
     
-    # Selección robusta del bloque según el rango de horario
-    if 13 <= hora_cdmx <= 17:  # 1 PM a 5 PM → historia_a (3 PM)
+    if 13 <= hora_cdmx <= 17:
         clave = "historia_a"
-    elif 19 <= hora_cdmx <= 23:  # 7 PM a 11 PM → historia_b (8 PM)
+    elif 19 <= hora_cdmx <= 23:
         clave = "historia_b"
     else:
-        # Si está fuera de rango, elegir la que no esté completada
         if not estado["historia_a"]["completada"] and estado["historia_a"].get("tema"):
             clave = "historia_a"
         elif not estado["historia_b"]["completada"] and estado["historia_b"].get("tema"):
@@ -295,7 +291,6 @@ def main():
     historia = estado[clave]
     print(f"📖 {clave}: Parte {historia['parte']} - Tema: {historia['tema'] if historia['tema'] else 'Ninguno'}")
     
-    # Si la historia está completada o no tiene tema, asignar nuevo tema
     if historia.get("completada", False) or not historia.get("tema"):
         print(f"🔄 {clave} completada o sin tema. Eligiendo nuevo tema...")
         nuevo_tema = obtener_tema_no_repetido(temas, estado)
@@ -310,18 +305,15 @@ def main():
     
     print(f"📖 Publicando {clave}: {tema} - Parte {parte}")
     
-    # Generar historia
     print("📝 Generando testimonio con DeepSeek...")
     texto = generar_historia_deepseek(tema, parte)
     texto = agregar_llamado_parte2(texto, parte)
     print("✅ Testimonio generado y llamado agregado")
     
-    # Generar prompt de imagen vertical
     print("🎨 Generando prompt de imagen vertical...")
     prompt_imagen = generar_prompt_imagen(texto, tema, parte)
     print(f"📝 Prompt de imagen: {prompt_imagen[:150]}...")
     
-    # Generar imagen vertical (1080x1350)
     image_url = generar_imagen_agnes(prompt_imagen, width=1080, height=1350)
     
     if image_url is None:
@@ -331,7 +323,6 @@ def main():
         print(f"✅ Imagen vertical generada: {image_url}")
         enviar_a_make(texto, image_url)
     
-    # Actualizar estado
     if parte == 1:
         if tema not in estado.get("publicados", []):
             estado["publicados"].append(tema)
