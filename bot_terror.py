@@ -60,7 +60,12 @@ def cargar_temas():
 def cargar_estado():
     try:
         with open(ESTADO_FILE, "r", encoding="utf-8") as f:
-            return json.load(f)
+            data = json.load(f)
+            # 🔥 GARANTIZAR QUE 'texto_parte1' EXISTA
+            for k in ["historia_a", "historia_b"]:
+                if k in data and "texto_parte1" not in data[k]:
+                    data[k]["texto_parte1"] = ""
+            return data
     except Exception:
         return {
             "historia_a": {
@@ -329,18 +334,15 @@ def main():
     hora_cdmx = datetime.now(cdmx).hour
     print(f"🕒 Hora en CDMX: {hora_cdmx}:00 hs")
 
-    if 13 <= hora_cdmx <= 17:
+    # 🔥 VENTANA HORARIA AMPLIADA PARA TOLERAR RETRASOS
+    if 11 <= hora_cdmx <= 18:
         clave = "historia_a"
-    elif 19 <= hora_cdmx <= 23:
+    elif 19 <= hora_cdmx <= 23 or 0 <= hora_cdmx <= 4:
         clave = "historia_b"
     else:
-        if not estado["historia_a"]["completada"] and estado[
-            "historia_a"
-        ].get("tema"):
+        if not estado["historia_a"]["completada"] and estado["historia_a"].get("tema"):
             clave = "historia_a"
-        elif not estado["historia_b"]["completada"] and estado[
-            "historia_b"
-        ].get("tema"):
+        elif not estado["historia_b"]["completada"] and estado["historia_b"].get("tema"):
             clave = "historia_b"
         else:
             clave = random.choice(["historia_a", "historia_b"])
