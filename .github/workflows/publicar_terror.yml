@@ -2,8 +2,8 @@ name: Bot Terror - Publicación
 
 on:
   schedule:
-    - cron: '0 21 * * *'   # 3:00 PM CDMX (21:00 UTC)
-    - cron: '0 2 * * *'    # 8:00 PM CDMX (02:00 UTC)
+    - cron: '14 21 * * *'   # ~3:14 PM CDMX (21:14 UTC) -> Historia A
+    - cron: '22 2 * * *'    # ~8:22 PM CDMX (02:22 UTC) -> Historia B
   workflow_dispatch:
 
 permissions:
