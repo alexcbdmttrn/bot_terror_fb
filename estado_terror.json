@@ -1,17 +1,18 @@
 {
   "historia_a": {
-    "tema": "El eco de los muros en la Calle de los Sapos, Puebla",
-    "parte": 2,
-    "completada": true
+    "tema": "",
+    "parte": 1,
+    "completada": false,
+    "texto_parte1": ""
   },
   "historia_b": {
-    "tema": "El fantasma del Paseo de Montejo, Mérida",
-    "parte": 2,
-    "completada": false
+    "tema": "",
+    "parte": 1,
+    "completada": false,
+    "texto_parte1": ""
   },
   "publicados": [
     "La Llorona de la Laguna de Jalapa, Tabasco",
-    "El eco de los muros en la Calle de los Sapos, Puebla",
-    "El fantasma del Paseo de Montejo, Mérida"
+    "El eco de los muros en la Calle de los Sapos, Puebla"
   ]
 }
