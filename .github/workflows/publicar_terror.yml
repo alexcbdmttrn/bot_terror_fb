@@ -1,45 +1,52 @@
 name: Bot Terror - Publicación
-
 on:
   schedule:
     - cron: '14 21 * * *'   # ~3:14 PM CDMX (21:14 UTC) -> Historia A
     - cron: '22 2 * * *'    # ~8:22 PM CDMX (02:22 UTC) -> Historia B
   workflow_dispatch:
-
 permissions:
   contents: write
-
 jobs:
   publicar:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repositorio
         uses: actions/checkout@v4
-
       - name: Configurar Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-
       - name: Instalar dependencias
         run: |
           pip install requests pytz
-
       - name: Ejecutar bot de terror
         env:
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
           MAKE_WEBHOOK_URL_TERROR: ${{ secrets.MAKE_WEBHOOK_URL_TERROR }}
           AGNES_API_KEY: ${{ secrets.AGNES_API_KEY }}
-          CRON_SCHEDULE: ${{ github.event.schedule }}   # <--- NUEVO
+          CRON_SCHEDULE: ${{ github.event.schedule }}
         run: python bot_terror.py
-
       - name: Commit y push del estado
         run: |
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
-          git pull --rebase origin main   # <--- NUEVO
+
           git add estado_terror.json
-          git diff-index --quiet HEAD || git commit -m "Actualizar estado terror [skip ci]"
-          git push
+
+          if git diff-index --quiet HEAD; then
+            echo "✅ No hay cambios en estado_terror.json"
+            exit 0
+          fi
+
+          git commit -m "Actualizar estado terror [skip ci]"
+
+          for i in 1 2 3 4 5; do
+            if git pull --rebase origin main && git push; then
+              echo "✅ Push exitoso"
+              break
+            fi
+            echo "⚠️ Intento $i/5 falló, reintentando en 10s..."
+            sleep 10
+          done
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
