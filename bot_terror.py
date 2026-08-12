@@ -27,7 +27,7 @@ VARIANTES_FINAL_PARTE1 = [
     "💀 ¿Crees que sobrevivió? La Parte 2 te espera mañana. ¡No faltes! 😈",
     "📌 El misterio aún no termina. La Parte 2 llega mañana a la misma hora. 👇",
     "🌙 La oscuridad guarda más secretos. La Parte 2 mañana a la misma hora. 🕯️",
-    "❓ ¿Tienes tu propia teoría? La Parte 2 llega mañana. ¡Te leemos en comentarios! 👇",
+    "❓ ¿Tienes tu propia teoría? La Parte 2 llega. ¡Te leemos en comentarios! 👇",
     "🌑 La noche guarda el secreto. La Parte 2 llega mañana a la misma hora. 👇",
     "💬 Cuéntanos tu teoría. La Parte 2 mañana a la misma hora. 👻",
     "🔦 ¿Qué crees que había detrás de la puerta? Parte 2 mañana. 🌙",
