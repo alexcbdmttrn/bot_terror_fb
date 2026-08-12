@@ -1,9 +1,9 @@
 {
   "historia_a": {
-    "tema": "",
-    "parte": 1,
+    "tema": "El fantasma del Palacio de Cortés, Cuernavaca, Morelos",
+    "parte": 2,
     "completada": false,
-    "texto_parte1": ""
+    "texto_parte1": "Me llamo Andrés y fui velador del Palacio de Cortés durante doce años, hasta que una noche de octubre me obligó a renunciar. No me creerá si le digo que las paredes de ese edificio del siglo XVI guardan más que historia, pero yo lo viví.\n\nEra la una de la madrugada, cuando el silencio pesa como una losa. Hacía mi ronda habitual por el ala este, donde está el mural de Rivera. La luna entraba por los ventanales y proyectaba sombras alargadas sobre las tablas del piso. De repente, el aire se volvió frío, un frío que no venía de afuera, sino de adentro, de los huesos.\n\nEntonces escuché un taconeo. No era el eco de mis propios pasos. Era un ritmo lento, pausado, como el de una mujer que arrastra un vestido largo. Me quedé inmóvil, con la linterna apagada, pegado a la pared. El sonido se acercaba desde la escalera principal. Vi algo que no puedo explicar: una silueta femenina, traslúcida, con un vestido de época colonial, que flotaba a medio metro del suelo. No tenía rostro, solo un velo negro que se movía sin viento.\n\nSe detuvo frente a la puerta del antiguo salón de audiencias, donde se dice que Cortés encerró a su esposa doña Juana de Zúñiga cuando enfermó de melancolía. La silueta levantó una mano y señaló directamente hacia mí. En ese instante, sentí que algo me apretaba la garganta, como si dedos invisibles quisieran callarme para siempre.\n\nLogré susurrar un Padre Nuestro, y la figura se desvaneció, pero el frío permaneció. Corrí a la caseta y marqué al encargado. Cuando llegó, me encontró temblando, y solo atinó a decirme: \"¿También a ti te tocó la de blanco? La última velador duró tres días\". Esa noche entendí que el palacio no nos deja ir, solo nos permite sobrevivir para contarlo, y yo apenas estoy empezando a recordar lo que vi en aquel salón cerrado."
   },
   "historia_b": {
     "tema": "",
@@ -13,6 +13,7 @@
   },
   "publicados": [
     "La Llorona de la Laguna de Jalapa, Tabasco",
-    "El eco de los muros en la Calle de los Sapos, Puebla"
+    "El eco de los muros en la Calle de los Sapos, Puebla",
+    "El fantasma del Palacio de Cortés, Cuernavaca, Morelos"
   ]
 }
