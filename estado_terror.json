@@ -1,9 +1,9 @@
 {
   "historia_a": {
-    "tema": "El fantasma del Palacio de Cortés, Cuernavaca, Morelos",
+    "tema": "Las luces del valle de Comala, Colima",
     "parte": 2,
-    "completada": true,
-    "texto_parte1": ""
+    "completada": false,
+    "texto_parte1": "**Las luces del valle de Comala, Colima**\n\nMi nombre es don Efrén, y desde que tengo memoria he vivido en las faldas del Volcán de Fuego, justo donde el valle de Comala se abre como una herida verde entre montañas. Aquí, entre cafetales y caña de azúcar, la noche no es silencio; es un ojo que te observa.\n\nCorría el año de 1987, en plena temporada de lluvias. Regresaba de un velorio en el pueblo de Suchitlán, y mi mula, la Canela, se negaba a avanzar más allá del crucero de San Juan. Fue entonces cuando las vi: unas esferas de luz ámbar, del tamaño de una naranja, que flotaban a ras del maizal. No parpadeaban como luciérnagas; danzaban en círculos, como si siguieran una música que solo ellas escuchaban.\n\nYo, que he cargado muertos y he oído el llanto del viento entre los mezquites, sentí un frío que no venía del aire, sino de los huesos. Las luces comenzaron a acercarse, y con ellas, un olor a tierra mojada y a azufre. Una de las esferas se detuvo frente a mí, a menos de tres metros. Adentro, juro por mi madre, no había fuego: había una silueta, diminuta y retorcida, que giraba sobre sí misma.\n\nQuise persignarme, pero mi brazo no respondió. La Canela temblaba y sudaba, y de su boca salía un bramido sordo, como si viera al diablo. La luz entonces se partió en dos, y de su interior emergió un susurro que no era voz, sino el crujir de hojas secas: *“No eres bienvenido, Efrén…”*.\n\nCuando por fin pude moverme, las esferas se elevaron en espiral hacia el volcán, dejando tras de sí un rastro de ceniza que flotaba en el aire sin caer. Al llegar a mi casa, mi esposa me miró y palideció: en mi espalda, sobre el sarape, había una marca que no estaba antes, una quemadura con forma de espiral, y desde esa noche, cada vez que cierro los ojos, escucho el crujir de las hojas, más cerca, siempre más cerca de mi cama."
   },
   "historia_b": {
     "tema": "El aparecido del Cerro de la Bufa, Zacatecas",
@@ -15,6 +15,7 @@
     "La Llorona de la Laguna de Jalapa, Tabasco",
     "El eco de los muros en la Calle de los Sapos, Puebla",
     "El fantasma del Palacio de Cortés, Cuernavaca, Morelos",
-    "El aparecido del Cerro de la Bufa, Zacatecas"
+    "El aparecido del Cerro de la Bufa, Zacatecas",
+    "Las luces del valle de Comala, Colima"
   ]
 }
