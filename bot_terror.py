@@ -4,6 +4,7 @@ import os
 import random
 import re
 import sys
+import time
 import pytz
 import requests
 
@@ -60,7 +61,6 @@ def cargar_estado():
     try:
         with open(ESTADO_FILE, "r", encoding="utf-8") as f:
             data = json.load(f)
-            # Garantizar campo texto_parte1
             for k in ["historia_a", "historia_b"]:
                 if k in data and "texto_parte1" not in data[k]:
                     data[k]["texto_parte1"] = ""
@@ -106,7 +106,6 @@ def seleccionar_clave():
     elif cron == "22 2 * * *":     # Historia B (8:22 PM)
         return "historia_b"
     else:
-        # Fallback para workflow_dispatch manual: usar lógica por hora
         cdmx = pytz.timezone("America/Mexico_City")
         hora = datetime.now(cdmx).hour
         if 11 <= hora <= 18:
@@ -114,7 +113,6 @@ def seleccionar_clave():
         elif 19 <= hora <= 23 or 0 <= hora <= 4:
             return "historia_b"
         else:
-            # Si está fuera de rango, elegir la que no esté completada
             estado = cargar_estado()
             if not estado["historia_a"]["completada"] and estado["historia_a"].get("tema"):
                 return "historia_a"
@@ -127,12 +125,8 @@ def seleccionar_clave():
 # LIMPIAR TEXTO PARA GUARDAR (menos agresiva)
 # ================================================================
 def limpiar_texto_parte1(texto):
-    """Elimina emojis, hashtags y llamados a la Parte 2, pero NO elimina palabras sueltas."""
-    # Eliminar emojis
     texto = re.sub(r'[\U0001F600-\U0001F64F\U0001F300-\U0001F5FF\U0001F680-\U0001F6FF\U0001F700-\U0001F77F\U0001F780-\U0001F7FF\U0001F800-\U0001F8FF\U0001F900-\U0001F9FF\U0001FA00-\U0001FA6F\U0001FA70-\U0001FAFF\U00002700-\U000027BF\U000024C2-\U0001F251]', '', texto)
-    # Eliminar hashtags
     texto = re.sub(r'#\w+', '', texto)
-    # Eliminar líneas que sean llamados a la Parte 2 (con emoji + palabras clave)
     lineas = texto.split('\n')
     lineas_limpias = []
     for linea in lineas:
@@ -140,7 +134,6 @@ def limpiar_texto_parte1(texto):
             continue
         lineas_limpias.append(linea)
     texto = '\n'.join(lineas_limpias)
-    # Eliminar saltos de línea excesivos
     texto = re.sub(r'\n{3,}', '\n\n', texto)
     return texto.strip()
 
@@ -247,7 +240,6 @@ Formato EXACTO:
         r = requests.post(url, headers=headers, json=payload, timeout=90)
         r.raise_for_status()
         resultado = r.json()["choices"][0]["message"]["content"].strip()
-        # Validar que no sea un mensaje de error
         if "[Error al generar el testimonio]" in resultado or len(resultado) < 50:
             raise ValueError("Respuesta vacía o de error")
         return resultado
@@ -285,9 +277,11 @@ def agregar_llamado_parte2(texto, parte):
     return texto
 
 # ================================================================
-# GENERAR IMAGEN CON AGNES AI (con placeholder)
+# GENERAR IMAGEN CON AGNES AI
+# CON 5 REINTENTOS, 15 SEGUNDOS DE ESPERA ENTRE CADA UNO,
+# Y LOGGING DEL ERROR REAL (response.text) PARA PODER DIAGNOSTICAR
 # ================================================================
-def generar_imagen_agnes(prompt, width=1080, height=1350):
+def generar_imagen_agnes(prompt, width=1080, height=1350, intentos=5, espera_segundos=15):
     prompt_limpio = prompt[:500]
     url = "https://apihub.agnes-ai.com/v1/images/generations"
     headers = {
@@ -302,20 +296,27 @@ def generar_imagen_agnes(prompt, width=1080, height=1350):
         "num_images": 1,
     }
 
-    try:
-        print("🎨 Generando imagen vertical para Facebook...")
-        response = requests.post(url, headers=headers, json=payload, timeout=90)
-        if response.status_code == 200:
-            data = response.json()
-            image_url = data["data"][0]["url"]
-            print("✅ Imagen generada (1080x1350)")
-            return image_url
-        else:
-            print(f"❌ Error en Agnes AI: {response.status_code}")
-            return None
-    except Exception as e:
-        print(f"❌ Error de conexión con Agnes AI: {e}")
-        return None
+    for intento in range(1, intentos + 1):
+        print(f"🎨 Intento {intento}/{intentos} generando imagen vertical para Facebook...")
+        try:
+            response = requests.post(url, headers=headers, json=payload, timeout=90)
+            if response.status_code == 200:
+                data = response.json()
+                image_url = data["data"][0]["url"]
+                print(f"✅ Imagen generada (1080x{height}) en el intento {intento}")
+                return image_url
+            else:
+                # Log del error real que devuelve Agnes, no solo el código
+                print(f"❌ Intento {intento}/{intentos} - Error en Agnes AI: {response.status_code} - {response.text[:300]}")
+        except Exception as e:
+            print(f"❌ Intento {intento}/{intentos} - Error de conexión con Agnes AI: {e}")
+
+        if intento < intentos:
+            print(f"⏳ Esperando {espera_segundos}s antes de reintentar...")
+            time.sleep(espera_segundos)
+
+    print(f"❌ No se pudo generar la imagen después de {intentos} intentos.")
+    return None
 
 # ================================================================
 # ENVIAR A MAKE.COM
@@ -345,7 +346,6 @@ def main():
     print("👻 Iniciando Bot de Terror (Vertical 1080x1350)")
     print(f"📅 {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
 
-    # Validar variables de entorno con exit(1)
     if not all([DEEPSEEK_API_KEY, MAKE_WEBHOOK_URL_TERROR, AGNES_API_KEY]):
         print("❌ Faltan variables de entorno. Revisa los Secrets de GitHub.")
         sys.exit(1)
@@ -355,7 +355,6 @@ def main():
 
     estado = cargar_estado()
 
-    # Seleccionar clave por CRON o por hora (fallback)
     clave = seleccionar_clave()
     historia = estado[clave]
     print(f"📖 {clave}: Parte {historia['parte']} - Tema: {historia['tema'] if historia['tema'] else 'Ninguno'}")
@@ -378,12 +377,10 @@ def main():
     print("📝 Generando testimonio con DeepSeek...")
     texto_base = generar_historia_deepseek(tema, parte, texto_parte1)
 
-    # Validar que la generación fue exitosa
     if not texto_base:
         print("❌ Falló la generación de la historia. Abortando sin guardar estado.")
         sys.exit(1)
 
-    # Si estamos en Parte 1, guardamos el texto puro (sin emojis ni llamados) para la Parte 2
     if parte == 1:
         texto_limpio = limpiar_texto_parte1(texto_base)
         historia["texto_parte1"] = texto_limpio
@@ -396,11 +393,11 @@ def main():
     prompt_imagen = generar_prompt_imagen(texto_base, tema, parte)
     print(f"📝 Prompt de imagen: {prompt_imagen[:150]}...")
 
-    image_url = generar_imagen_agnes(prompt_imagen, width=1080, height=1350)
+    # 5 reintentos, 15s entre cada uno
+    image_url = generar_imagen_agnes(prompt_imagen, width=1080, height=1350, intentos=5, espera_segundos=15)
 
-    # Si no hay imagen, usar placeholder
     if image_url is None:
-        print("⚠️ Falló imagen, usando placeholder")
+        print("⚠️ Falló imagen tras todos los reintentos, usando placeholder")
         image_url = "https://via.placeholder.com/1080x1350/1a1a1a/ff0000?text=Terror"
 
     enviar_a_make(texto_final, image_url)
