@@ -18,24 +18,53 @@ AGNES_API_KEY = os.getenv("AGNES_API_KEY")
 ESTADO_FILE = "estado_terror.json"
 
 # ================================================================
-# VARIANTES PARA EL FINAL DE LA PARTE 1
+# 🎨 PALETAS MODERNAS 2026 (igual que bots de shorts/largos)
 # ================================================================
-VARIANTES_FINAL_PARTE1 = [
-    "📌 ¿Qué crees que pasó después? La Parte 2 llega mañana a la misma hora. ¡No te la pierdas! 👇",
-    "🔮 ¿Te atreves a imaginar lo que pasó después? La continuación mañana a la misma hora. 👻",
-    "👁️ ¿Qué crees que encontró? No te pierdas la Parte 2 mañana a la misma hora. 😱",
-    "🌙 La historia continúa mañana a la misma hora. ¿Estás listo para saber el desenlace? 👀",
-    "💀 ¿Crees que sobrevivió? La Parte 2 te espera mañana. ¡No faltes! 😈",
-    "📌 El misterio aún no termina. La Parte 2 llega mañana a la misma hora. 👇",
-    "🌙 La oscuridad guarda más secretos. La Parte 2 mañana a la misma hora. 🕯️",
-    "❓ ¿Tienes tu propia teoría? La Parte 2 llega. ¡Te leemos en comentarios! 👇",
-    "🌑 La noche guarda el secreto. La Parte 2 llega mañana a la misma hora. 👇",
-    "💬 Cuéntanos tu teoría. La Parte 2 mañana a la misma hora. 👻",
-    "🔦 ¿Qué crees que había detrás de la puerta? Parte 2 mañana. 🌙",
-    "🕸️ El misterio teje su telaraña. La Parte 2 mañana a la misma hora. 😱",
-    "📢 ¡Atención! La Parte 2 llega mañana. No te la pierdas. 👀",
-    "🤔 ¿Tienes alguna teoría? Parte 2 mañana a la misma hora. 🌙",
-    "⏳ El tiempo se acaba. La Parte 2 mañana te dará el final. 👇",
+PALETAS_COLOR = [
+    "Cold cyan blue LED fog, navy blue modern shadows, crisp white moonlight",
+    "Emerald green twilight, modern city haze, muted sage ambient lighting",
+    "Deep violet LED haze, electric purple ambient light, dark magenta shadows",
+    "Slate gray modern tones, freezing ice blue highlight, dim overcast ambient",
+    "Dark teal and deep blue, modern oceanic midnight, cold misty atmosphere",
+    "Stark black and white high contrast, silver moonlight, modern pitch shadows",
+    "Desaturated cold film look, moody cinematic lighting, 8k hyperrealistic",
+    "Neon purple and electric pink, deep violet shadows, cyberpunk modern lights",
+    "Electric yellow and charcoal black, stark contrast, dusty atmospheric haze",
+    "Deep crimson red, pitch black shadow, intense orange emergency LED lights",
+    "Blood red and burnt orange, modern charcoal shadows, hellish glow",
+    "Modern warm amber and dark mahogany, golden LED lighting, deep brown shadows",
+    "Fiery sunset orange, deep purple shadows, modern red highlights",
+    "Toxic lime green and pitch black, eerie chemical modern glow, radioactive haze",
+    "Clean modern daylight, neutral gray ambient, crisp shadows",
+    "Modern LED streetlight glow, cool white highlights, urban night atmosphere",
+]
+PALETA_COLOR_ACTUAL = random.choice(PALETAS_COLOR)
+
+# ================================================================
+# 📷 ESTILOS VISUALES MODERNOS 2026
+# ================================================================
+ESTILOS_VISUALES = [
+    "Modern 2026 cinematic photograph, bright contemporary lighting, well-lit scene, sharp focus, current era",
+    "Contemporary thriller photography 2026, soft modern ambient diffusion, bright highlights, present day",
+    "Modern documentary realistic photo 2026, natural crisp skin texture, current fashion and architecture",
+    "8k resolution modern cinematic frame, ultra clear facial details, bright exposure, contemporary era",
+    "Modern fashion photography style 2026, dramatic but well-lit, clean skin, current trends",
+    "Modern noir style 2026, high contrast but well-exposed, contemporary urban atmosphere",
+]
+ESTILO_VISUAL_ACTUAL = random.choice(ESTILOS_VISUALES)
+
+# ================================================================
+# 💀 CTA FINAL ÚNICO (sin "Parte 2 mañana")
+# ================================================================
+CTAS_FINALES = [
+    "\n\n💀 ¿Te ha pasado algo parecido? Cuéntanos tu historia en comentarios. 👇",
+    "\n\n👻 ¿Conoces una leyenda similar? Compártela en los comentarios. 👇",
+    "\n\n🌙 ¿Qué harías tú en esta situación? Te leemos en comentarios. 👇",
+    "\n\n👁️ ¿Crees que estas historias son reales? Déjanos tu opinión. 👇",
+    "\n\n🔮 ¿Has vivido algo sobrenatural? Cuéntanos tu experiencia. 👇",
+    "\n\n😱 ¿Te atreverías a visitar este lugar? Cuéntanos. 👇",
+    "\n\n🌑 ¿Conoces más historias así? Compártelas en comentarios. 👇",
+    "\n\n💬 Tu historia puede ser la siguiente. Cuéntanos. 👇",
 ]
 
 # ================================================================
@@ -55,32 +84,25 @@ def cargar_temas():
         sys.exit(1)
 
 # ================================================================
-# ESTADO
+# 🗂️ ESTADO SIMPLIFICADO (sin partes, solo publicados)
 # ================================================================
 def cargar_estado():
     try:
         with open(ESTADO_FILE, "r", encoding="utf-8") as f:
             data = json.load(f)
-            for k in ["historia_a", "historia_b"]:
-                if k in data and "texto_parte1" not in data[k]:
-                    data[k]["texto_parte1"] = ""
+            # Migrar estado viejo si existe
+            if "historia_a" in data or "historia_b" in data:
+                print("🔄 Detectado estado viejo. Migrando a nuevo formato...")
+                publicados = data.get("publicados", [])
+                return {"publicados": publicados, "ultimo_tema": ""}
+            # Asegurar campos nuevos
+            if "publicados" not in data:
+                data["publicados"] = []
+            if "ultimo_tema" not in data:
+                data["ultimo_tema"] = ""
             return data
     except Exception:
-        return {
-            "historia_a": {
-                "tema": "",
-                "parte": 1,
-                "completada": False,
-                "texto_parte1": "",
-            },
-            "historia_b": {
-                "tema": "",
-                "parte": 1,
-                "completada": False,
-                "texto_parte1": "",
-            },
-            "publicados": [],
-        }
+        return {"publicados": [], "ultimo_tema": ""}
 
 def guardar_estado(estado):
     with open(ESTADO_FILE, "w", encoding="utf-8") as f:
@@ -89,215 +111,275 @@ def guardar_estado(estado):
 
 def obtener_tema_no_repetido(temas, estado):
     publicados = set(estado.get("publicados", []))
-    disponibles = [t for t in temas if t not in publicados]
+    ultimo_tema = estado.get("ultimo_tema", "")
+    
+    # Excluir publicados Y el último tema (para no repetir inmediatamente)
+    disponibles = [t for t in temas if t not in publicados and t != ultimo_tema]
+    
     if not disponibles:
-        print("🔄 Todos los temas ya han sido publicados. Reiniciando historial.")
+        # Si solo queda el último tema, usar publicados sin él
+        disponibles = [t for t in temas if t != ultimo_tema]
+    
+    if not disponibles:
+        print("🔄 Todos los temas publicados. Reiniciando historial...")
         estado["publicados"] = []
+        disponibles = [t for t in temas if t != ultimo_tema]
+    
+    if not disponibles:
         disponibles = temas
+    
     return random.choice(disponibles)
 
 # ================================================================
-# SELECCIÓN DE CLAVE POR CRON (no por hora)
+# 🧹 LIMPIAR TEXTO PARA IMAGEN (quitar hashtags y emojis)
 # ================================================================
-def seleccionar_clave():
-    cron = os.getenv("CRON_SCHEDULE")
-    if cron == "14 21 * * *":      # Historia A (3:14 PM)
-        return "historia_a"
-    elif cron == "22 2 * * *":     # Historia B (8:22 PM)
-        return "historia_b"
-    else:
-        cdmx = pytz.timezone("America/Mexico_City")
-        hora = datetime.now(cdmx).hour
-        if 11 <= hora <= 18:
-            return "historia_a"
-        elif 19 <= hora <= 23 or 0 <= hora <= 4:
-            return "historia_b"
-        else:
-            estado = cargar_estado()
-            if not estado["historia_a"]["completada"] and estado["historia_a"].get("tema"):
-                return "historia_a"
-            elif not estado["historia_b"]["completada"] and estado["historia_b"].get("tema"):
-                return "historia_b"
-            else:
-                return random.choice(["historia_a", "historia_b"])
-
-# ================================================================
-# LIMPIAR TEXTO PARA GUARDAR (menos agresiva)
-# ================================================================
-def limpiar_texto_parte1(texto):
+def limpiar_texto_para_imagen(texto):
     texto = re.sub(r'[\U0001F600-\U0001F64F\U0001F300-\U0001F5FF\U0001F680-\U0001F6FF\U0001F700-\U0001F77F\U0001F780-\U0001F7FF\U0001F800-\U0001F8FF\U0001F900-\U0001F9FF\U0001FA00-\U0001FA6F\U0001FA70-\U0001FAFF\U00002700-\U000027BF\U000024C2-\U0001F251]', '', texto)
     texto = re.sub(r'#\w+', '', texto)
-    lineas = texto.split('\n')
-    lineas_limpias = []
-    for linea in lineas:
-        if re.search(r'[📌🔮👁️🌙💀📢❓]', linea) and re.search(r'(Parte 2|continuación|mañana a la misma hora|comentarios|teoría)', linea, re.IGNORECASE):
-            continue
-        lineas_limpias.append(linea)
-    texto = '\n'.join(lineas_limpias)
-    texto = re.sub(r'\n{3,}', '\n\n', texto)
-    return texto.strip()
+    texto = re.sub(r'\*\*([^*]+)\*\*', r'\1', texto)  # Quitar negritas
+    lineas = [linea for linea in texto.split('\n') if linea.strip()]
+    return '\n'.join(lineas).strip()
 
 # ================================================================
-# GENERAR PROMPT DE IMAGEN
+# 🧑 DETECTAR PERSONAJE DEL RELATO (género, edad, descripción)
 # ================================================================
-def generar_prompt_imagen(historia, tema, parte):
+def detectar_personaje(texto_historia):
+    """Usa DeepSeek para analizar el texto y extraer características del personaje."""
+    prompt = f"""Analiza el siguiente relato en primera persona y extrae las características físicas del protagonista.
+
+REGLAS:
+- Si el texto menciona explícitamente el género (hombre/mujer), úsalo. Si no, infiere por el contexto (nombre, profesión, pronombres).
+- Si menciona edad o época (ej: "en 1987 cuando tenía 20 años"), calcula la edad actual aproximada.
+- Si menciona oficio o vestimenta, inclúyelo.
+- Devuelve SOLO un JSON válido con estos campos:
+  - "genero": "hombre" o "mujer"
+  - "edad_aprox": número (ej: 35)
+  - "ocupacion": breve descripción (ej: "velador", "trailero", "ama de casa")
+  - "descripcion_breve": 1 línea en inglés describiendo al personaje (ej: "a 35-year-old Mexican man, wearing modern work uniform")
+
+REGLA CRÍTICA: Si no hay información suficiente, devuelve valores por defecto:
+- genero: "hombre"
+- edad_aprox: 35
+- ocupacion: "persona común"
+- descripcion_breve: "a 35-year-old Mexican person, contemporary clothing"
+
+RELATO:
+\"\"\"
+{texto_historia[:1500]}
+\"\"\"
+
+Devuelve SOLO el JSON, sin explicaciones, sin markdown.
+"""
+    url = "https://api.deepseek.com/v1/chat/completions"
+    headers = {"Authorization": f"Bearer {DEEPSEEK_API_KEY}", "Content-Type": "application/json"}
+    payload = {
+        "model": "deepseek-chat",
+        "messages": [{"role": "user", "content": prompt}],
+        "temperature": 0.3,
+        "max_tokens": 300,
+        "response_format": {"type": "json_object"}
+    }
+    
+    try:
+        r = requests.post(url, headers=headers, json=payload, timeout=60)
+        r.raise_for_status()
+        respuesta = r.json()["choices"][0]["message"]["content"].strip()
+        respuesta = re.sub(r"```json\s*", "", respuesta)
+        respuesta = re.sub(r"```\s*", "", respuesta)
+        
+        data = json.loads(respuesta, strict=False)
+        print(f"🧑 Personaje detectado: {data.get('genero', '?')}, {data.get('edad_aprox', '?')} años, {data.get('ocupacion', '?')}")
+        return data
+    except Exception as e:
+        print(f"⚠️ Error detectando personaje: {e}. Usando valores por defecto.")
+        return {
+            "genero": "hombre",
+            "edad_aprox": 35,
+            "ocupacion": "persona común",
+            "descripcion_breve": "a 35-year-old Mexican person, contemporary clothing"
+        }
+
+# ================================================================
+# 🎨 GENERAR PROMPT DE IMAGEN MODERNO (con personaje coincidente)
+# ================================================================
+def generar_prompt_imagen_moderno(historia, tema, personaje):
+    genero = personaje.get("genero", "hombre")
+    edad = personaje.get("edad_aprox", 35)
+    descripcion_breve = personaje.get("descripcion_breve", "a 35-year-old Mexican person, contemporary clothing")
+    
+    # Ajustar descripción según género
+    if genero == "mujer":
+        sujeto = f"a {edad}-year-old Mexican woman"
+    else:
+        sujeto = f"a {edad}-year-old Mexican man"
+    
     prompt = f"""Genera un PROMPT DE IMAGEN EN INGLÉS para una fotografía cinematográfica vertical (aspect ratio 4:5).
 
-Escena de la historia: {historia[:300]}
+Escena del relato: {limpiar_texto_para_imagen(historia)[:400]}
+
+TEMA: {tema}
+
+PERSONAJE DEL RELATO:
+{descripcion_breve}
 
 REGLAS DE COMPOSICIÓN CINEMATOGRÁFICA:
-- PLANO: Wide angle or Medium shot (Plano general o plano medio). NUNCA primeros planos de caras ni rostros gigantes.
-- ENFOQUE: La arquitectura colonial, callejones oscuros, niebla densa, iluminación de faroles antiguos, casas abandonadas, carreteras oscuras o paisajes nocturnos.
-- SUJETOS: Un solo individuo de espaldas o a la distancia caminando, o un entorno totalmente vacío pero con vibra misteriosa.
-- ESTILO: Cinema 35mm photograph, moody realistic lighting, dark teal and warm amber streetlights, atmospheric fog, high detail 4k.
-- RESTRICCIONES: CERO caras en primer plano, CERO expresiones exageradas gritando, CERO personas duplicadas, CERO texto, CERO gore.
+- PLANO: Wide angle o Medium shot (plano general o medio). NUNCA primeros planos de caras ni rostros gigantes.
+- SUJETO PRINCIPAL: {sujeto} (DEBE coincidir con el género y edad del relato). El personaje ocupa máximo 20-25% del encuadre, de espaldas o a la distancia.
+- ENTORNO: Arquitectura o paisaje relacionado con "{tema}". Representar como CONTEMPORÁNEO 2026 (edificios modernos, vehículos actuales, iluminación LED) a menos que el relato específicamente requiera época pasada.
+- ESTILO: {ESTILO_VISUAL_ACTUAL}
+- PALETA DE COLOR: {PALETA_COLOR_ACTUAL}
+- RESTRICCIONES: CERO caras en primer plano, CERO expresiones exageradas, CERO personas duplicadas, CERO texto, CERO gore, CERO ropa vintage oxidada, CERO autos clásicos.
+
+PROHIBIDO usar palabras como: abandoned, decaying, rusty, rusted, vintage, antique, sepia, weathered, dilapidated, 1950s, 1970s, 1980s.
 
 Formato de salida: SOLO el prompt en inglés, directo y sin introducciones.
 """
     url = "https://api.deepseek.com/v1/chat/completions"
-    headers = {
-        "Authorization": f"Bearer {DEEPSEEK_API_KEY}",
-        "Content-Type": "application/json",
-    }
+    headers = {"Authorization": f"Bearer {DEEPSEEK_API_KEY}", "Content-Type": "application/json"}
     payload = {
         "model": "deepseek-chat",
         "messages": [{"role": "user", "content": prompt}],
         "temperature": 0.6,
-        "max_tokens": 300,
+        "max_tokens": 400,
     }
 
     try:
         r = requests.post(url, headers=headers, json=payload, timeout=60)
         r.raise_for_status()
         prompt_imagen = r.json()["choices"][0]["message"]["content"].strip()
-        prompt_imagen += ", vertical composition 4:5, cinematic atmosphere, sharp focus, establishing shot, no faces close up, single person in distance, no duplicate people, no text"
+        prompt_imagen += f", vertical composition 4:5, cinematic atmosphere, sharp focus, establishing shot, no faces close up, single person ({sujeto}) in distance, no duplicate people, no text, modern 2026 era, no vintage, no rusty, no decayed"
         return prompt_imagen
     except Exception as e:
         print(f"❌ Error generando prompt de imagen: {e}")
-        return "Vertical 4:5 cinematic photo, dark empty Mexican colonial street at night, atmospheric fog, streetlamp lighting, mysterious mood, wide shot, no text"
+        return f"Vertical 4:5 cinematic photo, {sujeto} walking alone at distance in modern Mexican street at night, atmospheric fog, LED streetlamp lighting, mysterious mood, wide shot, no text, modern 2026 era, no vintage, no rusty"
 
 # ================================================================
-# GENERAR HISTORIA CON DEEPSEEK (con validación)
+# 📖 GENERAR HISTORIA COMPLETA (una sola parte, ~420 palabras)
 # ================================================================
-def generar_historia_deepseek(tema, parte, texto_parte1=""):
-    if parte == 1:
-        prompt = f"""Eres un INVESTIGADOR DE LEYENDAS URBANAS Y TRADICIÓN ORAL MEXICANA.
+def generar_historia_completa(tema):
+    prompt = f"""Eres un INVESTIGADOR DE LEYENDAS URBANAS Y TRADICIÓN ORAL MEXICANA.
 
-Tu tarea es DOCUMENTAR la PARTE 1 de un testimonio REAL sobre:
+Tu tarea es DOCUMENTAR un testimonio COMPLETO y AUTOCONCLUSIVO sobre:
 "{tema}"
 
-REGLAS ESTRICTAS:
-- Ambientación: Mención exacta del lugar.
-- Narración en PRIMERA PERSONA.
-- Extensión: MÁXIMO 320 palabras. Asegúrate de TERMINAR la última oración completamente (no dejes frases a la mitad).
-- El final debe ser un cliffhanger suspenso, pero concluyendo la frase.
-- NO incluyas llamado a la Parte 2 (yo lo agregaré después).
+🚨 REGLAS ESTRICTAS:
+- Ambientación: Mención EXACTA del lugar en México.
+- Narración en PRIMERA PERSONA, como si la persona te lo estuviera contando a ti.
+- Extensión: ENTRE 380 y 420 palabras. NI MÁS NI MENOS.
+- ESTRUCTURA OBLIGATORIA:
+  1. GANCHO inicial impactante (1-2 frases)
+  2. CONTEXTO: quién es el narrador, dónde y cuándo ocurrió
+  3. DESARROLLO: los hechos sobrenaturales paso a paso, con detalles sensoriales (sonidos, olores, sensaciones)
+  4. CLÍMAX: el momento más intenso del encuentro paranormal
+  5. DESENLACE: cómo terminó todo y qué le quedó al narrador
+- TERMINA la última oración completamente (no dejes frases a la mitad).
+- El narrador debe tener género y edad identificables (hombre o mujer, joven o adulto).
+- Tono NATURAL Y COLOQUIAL, como alguien contando su experiencia real.
+- Detalles específicos: nombres de lugares reales, años concretos, oficios reales.
 
-Formato EXACTO:
-🌙 **El [elemento misterioso] de [municipio], [estado]**
+Formato EXACTO de salida:
+🌙 **[Título descriptivo del suceso]**
 
-[Texto del testimonio]
+[Texto completo del testimonio, 380-420 palabras]
 
-#LeyendasMexicanas #Terror #Misterio
+#LeyendasMexicanas #Terror #Misterio #Paranormal
 """
-    else:
-        prompt = f"""Eres un INVESTIGADOR DE LEYENDAS URBANAS Y TRADICIÓN ORAL MEXICANA.
-
-Tu tarea es escribir la PARTE 2 Y FINAL del testimonio sobre: "{tema}".
-
-AQUÍ TIENES EL TEXTO EXACTO DE LA PARTE 1 QUE YA SE PUBLICÓ:
-\"\"\"
-{texto_parte1}
-\"\"\"
-
-REGLAS ESTRICTAS DE CONTINUIDAD:
-- DEBES MANTENER los mismos personajes, el mismo lugar específico y los mismos elementos mencionados en la Parte 1.
-- Da el DESENLACE a los hechos ocurridos en la Parte 1.
-- Extensión: MÁXIMO 320 palabras. Concluye totalmente todas las oraciones.
-- NO incluyas ningún llamado a comentar final (yo lo agregaré después).
-
-Formato EXACTO:
-🌙 **El [mismo título de la Parte 1]** - Parte 2
-
-[Texto del desenlace]
-
-#LeyendasMexicanas #Terror #Misterio
-"""
-
     url = "https://api.deepseek.com/v1/chat/completions"
-    headers = {
-        "Authorization": f"Bearer {DEEPSEEK_API_KEY}",
-        "Content-Type": "application/json",
-    }
+    headers = {"Authorization": f"Bearer {DEEPSEEK_API_KEY}", "Content-Type": "application/json"}
     payload = {
         "model": "deepseek-chat",
         "messages": [{"role": "user", "content": prompt}],
         "temperature": 0.75,
-        "max_tokens": 1000,
+        "max_tokens": 1200,
     }
 
-    try:
-        r = requests.post(url, headers=headers, json=payload, timeout=90)
-        r.raise_for_status()
-        resultado = r.json()["choices"][0]["message"]["content"].strip()
-        if "[Error al generar el testimonio]" in resultado or len(resultado) < 50:
-            raise ValueError("Respuesta vacía o de error")
-        return resultado
-    except Exception as e:
-        print(f"❌ Error en DeepSeek: {e}")
-        return None
+    for intento in range(3):
+        try:
+            print(f"📝 Intento {intento+1}/3 generando historia completa...")
+            r = requests.post(url, headers=headers, json=payload, timeout=120)
+            r.raise_for_status()
+            resultado = r.json()["choices"][0]["message"]["content"].strip()
+            
+            if "[Error" in resultado or len(resultado) < 200:
+                raise ValueError("Respuesta muy corta o con error")
+            
+            # Contar palabras (sin hashtags ni título)
+            lineas = resultado.split('\n')
+            texto_narrativo = '\n'.join(linea for linea in lineas if linea.strip() and not linea.strip().startswith('#') and not linea.strip().startswith('🌙'))
+            palabras = len(texto_narrativo.split())
+            print(f"   📊 Palabras generadas: {palabras}")
+            
+            if palabras < 250:
+                print(f"   ⚠️ Muy corto ({palabras} palabras). Reintentando...")
+                raise ValueError("Historia demasiado corta")
+            
+            return resultado
+        except Exception as e:
+            print(f"❌ Intento {intento+1} falló: {e}")
+            if intento < 2:
+                time.sleep(5)
+    
+    print("❌ No se pudo generar la historia después de 3 intentos.")
+    return None
 
 # ================================================================
-# AGREGAR LLAMADO A LA PARTE 2
+# 💀 AGREGAR CTA FINAL
 # ================================================================
-def agregar_llamado_parte2(texto, parte):
-    if parte == 1:
-        llamado = random.choice(VARIANTES_FINAL_PARTE1)
-        patrones = [
-            r"📌.*?Parte 2.*?",
-            r"🔮.*?continuación.*?",
-            r"👁️.*?Parte 2.*?",
-            r"🌙.*?continúa.*?",
-            r"💀.*?Parte 2.*?",
-            r"📌.*?mañana.*?",
-            r"👻.*?mañana.*?",
-            r"👇.*?mañana.*?",
-        ]
-        for patron in patrones:
-            texto = re.sub(patron, "", texto, flags=re.IGNORECASE | re.DOTALL)
-        texto = "\n".join(line for line in texto.split("\n") if line.strip())
-        return texto + "\n\n" + llamado
-    elif parte == 2:
-        llamado = "\n\n💀 ¿Te ha pasado algo parecido? Cuéntanos tu historia en comentarios. 👇"
-        patrones = [r"💀.*?Cuéntanos.*?", r"👇.*?comentarios.*?"]
-        for patron in patrones:
-            texto = re.sub(patron, "", texto, flags=re.IGNORECASE | re.DOTALL)
-        texto = "\n".join(line for line in texto.split("\n") if line.strip())
-        return texto + llamado
-    return texto
+def agregar_cta_final(texto):
+    # Limpiar cualquier CTA previo
+    patrones = [
+        r"💀.*?comentarios.*?",
+        r"👇.*?comentarios.*?",
+        r"👻.*?comentarios.*?",
+        r"🌙.*?comentarios.*?",
+        r"👁️.*?comentarios.*?",
+    ]
+    for patron in patrones:
+        texto = re.sub(patron, "", texto, flags=re.IGNORECASE | re.DOTALL)
+    
+    # Quitar líneas vacías excesivas
+    texto = "\n".join(linea for linea in texto.split("\n") if linea.strip())
+    texto = re.sub(r'\n{3,}', '\n\n', texto)
+    
+    # Agregar CTA aleatorio
+    cta = random.choice(CTAS_FINALES)
+    return texto.strip() + cta
 
 # ================================================================
-# GENERAR IMAGEN CON AGNES AI
-# CON 5 REINTENTOS, 15 SEGUNDOS DE ESPERA ENTRE CADA UNO,
-# Y LOGGING DEL ERROR REAL (response.text) PARA PODER DIAGNOSTICAR
+# 🖼️ GENERAR IMAGEN CON AGNES AI (negative prompt moderno)
 # ================================================================
 def generar_imagen_agnes(prompt, width=1080, height=1350, intentos=5, espera_segundos=15):
-    prompt_limpio = prompt[:500]
+    prompt_limpio = prompt[:800]
     url = "https://apihub.agnes-ai.com/v1/images/generations"
-    headers = {
-        "Authorization": f"Bearer {AGNES_API_KEY}",
-        "Content-Type": "application/json",
-    }
+    headers = {"Authorization": f"Bearer {AGNES_API_KEY}", "Content-Type": "application/json"}
+    
+    # Negative prompt moderno (anti-vintage)
+    negative = (
+        "close-up face, portrait, headshot, person filling frame, "
+        "deformed face, disfigured, mutated, bad anatomy, extra limbs, "
+        "extra fingers, asymmetrical eyes, malformed features, uncanny valley, "
+        "gaunt, emaciated, ugly, grotesque, gore, blood, "
+        "rusty, rusted, oxidized, weathered, aged, vintage, retro, antique, old-fashioned, "
+        "dilapidated, decrepit, run-down, crumbling, cracked walls, peeling paint, "
+        "deteriorated, abandoned ruins, moldy, musty, dusty, cobwebs, "
+        "classic car, old car, vintage car, retro car, horse carriage, "
+        "1950s, 1960s, 1970s, 1980s, 1990s, ancient, medieval, historical, "
+        "sepia tone, monochrome, black and white, film grain, "
+        "duplicate people, cloned faces, multiple subjects, "
+        "low quality, blurry, oversharpened, over-saturated"
+    )
+    
     payload = {
         "model": "agnes-image-2.1-flash",
         "prompt": prompt_limpio,
+        "negative_prompt": negative,
         "width": width,
         "height": height,
         "num_images": 1,
     }
 
     for intento in range(1, intentos + 1):
-        print(f"🎨 Intento {intento}/{intentos} generando imagen vertical para Facebook...")
+        print(f"🎨 Intento {intento}/{intentos} generando imagen vertical moderna...")
         try:
             response = requests.post(url, headers=headers, json=payload, timeout=90)
             if response.status_code == 200:
@@ -306,10 +388,9 @@ def generar_imagen_agnes(prompt, width=1080, height=1350, intentos=5, espera_seg
                 print(f"✅ Imagen generada (1080x{height}) en el intento {intento}")
                 return image_url
             else:
-                # Log del error real que devuelve Agnes, no solo el código
-                print(f"❌ Intento {intento}/{intentos} - Error en Agnes AI: {response.status_code} - {response.text[:300]}")
+                print(f"❌ Error en Agnes AI: {response.status_code} - {response.text[:200]}")
         except Exception as e:
-            print(f"❌ Intento {intento}/{intentos} - Error de conexión con Agnes AI: {e}")
+            print(f"❌ Error de conexión: {e}")
 
         if intento < intentos:
             print(f"⏳ Esperando {espera_segundos}s antes de reintentar...")
@@ -319,7 +400,7 @@ def generar_imagen_agnes(prompt, width=1080, height=1350, intentos=5, espera_seg
     return None
 
 # ================================================================
-# ENVIAR A MAKE.COM
+# 📤 ENVIAR A MAKE.COM
 # ================================================================
 def enviar_a_make(message, image_url):
     payload = {
@@ -343,7 +424,7 @@ def enviar_a_make(message, image_url):
 # MAIN
 # ================================================================
 def main():
-    print("👻 Iniciando Bot de Terror (Vertical 1080x1350)")
+    print("👻 Iniciando Bot de Terror (1 relato completo, 3x diarios)")
     print(f"📅 {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
 
     if not all([DEEPSEEK_API_KEY, MAKE_WEBHOOK_URL_TERROR, AGNES_API_KEY]):
@@ -355,62 +436,51 @@ def main():
 
     estado = cargar_estado()
 
-    clave = seleccionar_clave()
-    historia = estado[clave]
-    print(f"📖 {clave}: Parte {historia['parte']} - Tema: {historia['tema'] if historia['tema'] else 'Ninguno'}")
+    # Elegir tema no repetido
+    tema = obtener_tema_no_repetido(temas, estado)
+    print(f"📖 Tema seleccionado: {tema}")
 
-    if historia.get("completada", False) or not historia.get("tema"):
-        print(f"🔄 {clave} completada o sin tema. Eligiendo nuevo tema...")
-        nuevo_tema = obtener_tema_no_repetido(temas, estado)
-        historia["tema"] = nuevo_tema
-        historia["parte"] = 1
-        historia["completada"] = False
-        historia["texto_parte1"] = ""
-        guardar_estado(estado)
+    # 1. Generar historia COMPLETA (sin partes)
+    print("📝 Generando historia completa con DeepSeek...")
+    historia_base = generar_historia_completa(tema)
 
-    tema = historia["tema"]
-    parte = historia["parte"]
-    texto_parte1 = historia.get("texto_parte1", "")
-
-    print(f"📖 Publicando {clave}: {tema} - Parte {parte}")
-
-    print("📝 Generando testimonio con DeepSeek...")
-    texto_base = generar_historia_deepseek(tema, parte, texto_parte1)
-
-    if not texto_base:
+    if not historia_base:
         print("❌ Falló la generación de la historia. Abortando sin guardar estado.")
         sys.exit(1)
 
-    if parte == 1:
-        texto_limpio = limpiar_texto_parte1(texto_base)
-        historia["texto_parte1"] = texto_limpio
-        print("✅ Texto de la Parte 1 guardado (limpio) para continuidad.")
+    print(f"✅ Historia completa generada ({len(historia_base.split())} palabras)")
 
-    texto_final = agregar_llamado_parte2(texto_base, parte)
-    print("✅ Testimonio generado y llamado agregado")
+    # 2. Agregar CTA final
+    texto_final = agregar_cta_final(historia_base)
+    print("✅ CTA final agregado")
 
-    print("🎨 Generando prompt de imagen vertical...")
-    prompt_imagen = generar_prompt_imagen(texto_base, tema, parte)
-    print(f"📝 Prompt de imagen: {prompt_imagen[:150]}...")
+    # 3. Detectar personaje del relato (género, edad, descripción)
+    print("🧑 Detectando personaje del relato...")
+    personaje = detectar_personaje(historia_base)
 
-    # 5 reintentos, 15s entre cada uno
+    # 4. Generar prompt de imagen MODERNO con personaje coincidente
+    print("🎨 Generando prompt de imagen moderno...")
+    prompt_imagen = generar_prompt_imagen_moderno(historia_base, tema, personaje)
+    print(f"📝 Prompt de imagen: {prompt_imagen[:200]}...")
+
+    # 5. Generar imagen con negative prompt anti-vintage
     image_url = generar_imagen_agnes(prompt_imagen, width=1080, height=1350, intentos=5, espera_segundos=15)
 
     if image_url is None:
         print("⚠️ Falló imagen tras todos los reintentos, usando placeholder")
         image_url = "https://via.placeholder.com/1080x1350/1a1a1a/ff0000?text=Terror"
 
-    enviar_a_make(texto_final, image_url)
+    # 6. Enviar a Make
+    enviado = enviar_a_make(texto_final, image_url)
 
-    if parte == 1:
+    # 7. Actualizar estado solo si se envió correctamente
+    if enviado:
         if tema not in estado.get("publicados", []):
             estado["publicados"].append(tema)
-        historia["parte"] = 2
-        print(f"✅ {clave} pasa a Parte 2")
-    elif parte == 2:
-        historia["completada"] = True
-        historia["texto_parte1"] = ""
-        print(f"✅ {clave} completada (Parte 2 publicada)")
+        estado["ultimo_tema"] = tema
+        print(f"✅ Relato publicado: {tema}")
+    else:
+        print(f"⚠️ Relato NO publicado (error de Make). Tema no registrado.")
 
     guardar_estado(estado)
     print("🎉 Proceso completado")
