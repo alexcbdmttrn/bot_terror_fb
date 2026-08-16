@@ -316,7 +316,7 @@ Formato EXACTO de salida:
     return None
 
 # ================================================================
-# 💀 AGREGAR CTA FINAL + HASHTAGS SIEMPRE AL FINAL
+# 💀 AGREGAR CTA FINAL + HASHTAGS + LEYENDA DE IA
 # ================================================================
 def agregar_cta_final(texto):
     # 1. Quitar hashtags existentes (los re-agregaremos al final)
@@ -341,10 +341,14 @@ def agregar_cta_final(texto):
     # 4. Agregar CTA aleatorio
     cta = random.choice(CTAS_FINALES)
     
-    # 5. 🆕 Agregar hashtags SIEMPRE al final (después del CTA)
+    # 5. Hashtags
     hashtags = "\n\n#LeyendasMexicanas #Terror #Misterio #Paranormal #Mexico"
     
-    return texto.strip() + cta + hashtags
+    # 6. 🆕 Leyenda de IA (obligatoria al final)
+    leyenda_ia = "\n\n_Imágenes generadas con IA_"
+    
+    # 7. Ensamblar todo en el orden correcto
+    return texto.strip() + cta + hashtags + leyenda_ia
 
 # ================================================================
 # 🖼️ GENERAR IMAGEN CON AGNES AI (negative prompt moderno)
@@ -448,9 +452,9 @@ def main():
 
     print(f"✅ Historia completa generada ({len(historia_base.split())} palabras)")
 
-    # 🆕 Agregar CTA + hashtags SIEMPRE al final
+    # Agregar CTA + hashtags + leyenda de IA
     texto_final = agregar_cta_final(historia_base)
-    print("✅ CTA final y hashtags agregados")
+    print("✅ CTA final, hashtags y leyenda de IA agregados")
 
     print("🧑 Detectando personaje del relato...")
     personaje = detectar_personaje(historia_base)
