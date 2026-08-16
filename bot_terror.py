@@ -18,7 +18,7 @@ AGNES_API_KEY = os.getenv("AGNES_API_KEY")
 ESTADO_FILE = "estado_terror.json"
 
 # ================================================================
-# 🎨 PALETAS MODERNAS 2026
+# 🎨 PALETAS MODERNAS 2026 (se usan en el prompt de imagen)
 # ================================================================
 PALETAS_COLOR = [
     "Cold cyan blue LED fog, navy blue modern shadows, crisp white moonlight",
@@ -41,7 +41,7 @@ PALETAS_COLOR = [
 PALETA_COLOR_ACTUAL = random.choice(PALETAS_COLOR)
 
 # ================================================================
-# 📷 ESTILOS VISUALES MODERNOS 2026
+# 📷 ESTILOS VISUALES MODERNOS 2026 (también para imagen)
 # ================================================================
 ESTILOS_VISUALES = [
     "Modern 2026 cinematic photograph, bright contemporary lighting, well-lit scene, sharp focus, current era",
@@ -127,17 +127,16 @@ def obtener_tema_no_repetido(temas, estado):
     return random.choice(disponibles)
 
 # ================================================================
-# 🧹 LIMPIAR TEXTO PARA IMAGEN
+# 🧹 LIMPIAR TEXTO PARA IMAGEN (solo elimina emojis y hashtags)
 # ================================================================
 def limpiar_texto_para_imagen(texto):
     texto = re.sub(r'[\U0001F600-\U0001F64F\U0001F300-\U0001F5FF\U0001F680-\U0001F6FF\U0001F700-\U0001F77F\U0001F780-\U0001F7FF\U0001F800-\U0001F8FF\U0001F900-\U0001F9FF\U0001FA00-\U0001FA6F\U0001FA70-\U0001FAFF\U00002700-\U000027BF\U000024C2-\U0001F251]', '', texto)
     texto = re.sub(r'#\w+', '', texto)
     texto = re.sub(r'\*\*([^*]+)\*\*', r'\1', texto)
-    lineas = [linea for linea in texto.split('\n') if linea.strip()]
-    return '\n'.join(lineas).strip()
+    return texto.strip()
 
 # ================================================================
-# 🧑 DETECTAR PERSONAJE DEL RELATO
+# 🧑 DETECTAR PERSONAJE DEL RELATO (se mantiene igual)
 # ================================================================
 def detectar_personaje(texto_historia):
     prompt = f"""Analiza el siguiente relato en primera persona y extrae las características físicas del protagonista.
@@ -195,60 +194,99 @@ Devuelve SOLO el JSON, sin explicaciones, sin markdown.
         }
 
 # ================================================================
-# 🎨 GENERAR PROMPT DE IMAGEN MODERNO
+# 🎭 DETECTOR DE ENTIDAD DEL TEMA (nuevo)
 # ================================================================
-def generar_prompt_imagen_moderno(historia, tema, personaje):
+def detectar_tipo_entidad(tema):
+    t = tema.lower()
+    if any(w in t for w in ["vampiro", "vampira", "chupasangre", "chupacabras"]):
+        return "vampiro"
+    if any(w in t for w in ["lobo", "nahual", "licántropo", "hombre lobo", "bestia"]):
+        return "lobo"
+    if any(w in t for w in ["monstruo", "criatura", "engendro", "demonio", "diablo"]):
+        return "monstruo"
+    if any(w in t for w in ["bruja", "hechicera", "nahuala", "aquelarre"]):
+        return "bruja"
+    if any(w in t for w in ["fantasma", "espíritu", "aparición", "sombra", "llorona", "ánima", "espectro"]):
+        return "fantasma"
+    return "misterio"
+
+DIRECTRICES_ENTIDAD = {
+    "vampiro": "an elegant tall vampire figure in dark Victorian clothing, pale skin, faintly glowing crimson eyes, standing among shadows at distance",
+    "lobo": "a massive black wolf silhouette with glowing amber eyes emerging from dense fog at distance",
+    "monstruo": "a towering dark creature silhouette with faint glowing eyes hidden between shadows at distance",
+    "bruja": "a hunched witch silhouette in black robes with faint green glowing eyes at distance",
+    "fantasma": "a translucent ghostly figure in white-gray with soft spectral glow at distance",
+    "misterio": "a faint dark silhouette far in the background, barely visible between shadows",
+}
+
+# ================================================================
+# 🎨 GENERAR PROMPT DE IMAGEN (ESTILO CINE DE TERROR DE ALTO IMPACTO)
+# ================================================================
+def generar_prompt_imagen(historia, tema, personaje):
+    tipo = detectar_tipo_entidad(tema)
+    entidad = DIRECTRICES_ENTIDAD[tipo]
+    
+    # Podemos usar la info del personaje para ajustar si aparece humano
     genero = personaje.get("genero", "hombre")
     edad = personaje.get("edad_aprox", 35)
-    descripcion_breve = personaje.get("descripcion_breve", "a 35-year-old Mexican person, contemporary clothing")
-    
     if genero == "mujer":
-        sujeto = f"a {edad}-year-old Mexican woman"
+        sujeto_humano = f"a {edad}-year-old Mexican woman"
     else:
-        sujeto = f"a {edad}-year-old Mexican man"
+        sujeto_humano = f"a {edad}-year-old Mexican man"
     
-    prompt = f"""Genera un PROMPT DE IMAGEN EN INGLÉS para una fotografía cinematográfica vertical (aspect ratio 4:5).
+    prompt = f"""Eres un DIRECTOR DE FOTOGRAFÍA DE CINE DE TERROR de nivel mundial, experto en concept art cinematográfico atmosférico.
+Crea un PROMPT DE IMAGEN EN INGLÉS para una imagen VERTICAL (4:5) que sea la escena MÁS REPRESENTATIVA de esta historia.
 
-Escena del relato: {limpiar_texto_para_imagen(historia)[:400]}
-
+HISTORIA:
+\"\"\"
+{limpiar_texto_para_imagen(historia)[:400]}
+\"\"\"
 TEMA: {tema}
+ENTIDAD DEL RELATO: {tipo}
+PERSONAJE HUMANO: {sujeto_humano}
 
-PERSONAJE DEL RELATO:
-{descripcion_breve}
+🎬 ESTILO VISUAL OBLIGATORIO (horror cinematográfico de alto impacto):
+- Cinematic horror film still, dramatic volumetric lighting, thick atmospheric fog
+- High contrast chiaroscuro: deep black shadows + ONE dominant accent glow (crimson red, electric cyan, amber or toxic green)
+- Subtle neon/electric glow on supernatural elements (glowing eyes, spectral aura, eerie light sources, neon signs if urban)
+- Moonlight beams, god rays, anamorphic lens feel, shallow depth of field
+- Saturated but elegant cinematic color grading, modern horror movie poster style
 
-REGLAS DE COMPOSICIÓN CINEMATOGRÁFICA:
-- PLANO: Wide angle o Medium shot. NUNCA primeros planos de caras.
-- SUJETO PRINCIPAL: {sujeto} (DEBE coincidir con el género y edad del relato). Ocupa máximo 20-25% del encuadre.
-- ENTORNO: Arquitectura o paisaje relacionado con "{tema}". CONTEMPORÁNEO 2026.
-- ESTILO: {ESTILO_VISUAL_ACTUAL}
-- PALETA DE COLOR: {PALETA_COLOR_ACTUAL}
-- RESTRICCIONES: CERO caras en primer plano, CERO expresiones exageradas, CERO personas duplicadas, CERO texto, CERO gore.
+📐 COMPOSICIÓN OBLIGATORIA:
+- PLANO: wide o medium-wide shot, vertical 4:5, composición de póster cinematográfico
+- EL ENTORNO ES EL PROTAGONISTA: arquitectura colonial, callejones con faroles, bosques con niebla, cementerios, interiores con velas, carreteras solitarias, metro, drenajes
+- ENTIDAD VISUAL DEL RELATO: {entidad} — SIEMPRE a distancia o entre sombras, integrada en la atmósfera, NUNCA en primer plano extremo
+- HUMANO: {sujeto_humano} — de espaldas o a distancia, ocupando MÁXIMO 20-25% del encuadre
+- EXACTAMENTE UNA figura humana y UNA entidad
 
-PROHIBIDO usar palabras como: abandoned, decaying, rusty, rusted, vintage, antique, sepia, weathered, dilapidated, 1950s, 1970s, 1980s.
+🚫 PROHIBIDO:
+- gore, sangre explícita, heridas, mutilaciones
+- caras deformes o monstruosas en primer plano extremo
+- texto, letras, watermarks, logos
+- multitudes, personas duplicadas, clones, gemelos
 
-Formato de salida: SOLO el prompt en inglés, directo y sin introducciones.
+Devuelve SOLO el prompt en inglés, directo, sin explicaciones.
 """
     url = "https://api.deepseek.com/v1/chat/completions"
     headers = {"Authorization": f"Bearer {DEEPSEEK_API_KEY}", "Content-Type": "application/json"}
     payload = {
         "model": "deepseek-chat",
         "messages": [{"role": "user", "content": prompt}],
-        "temperature": 0.6,
-        "max_tokens": 400,
+        "temperature": 0.7,
+        "max_tokens": 350,
     }
-
     try:
         r = requests.post(url, headers=headers, json=payload, timeout=60)
         r.raise_for_status()
         prompt_imagen = r.json()["choices"][0]["message"]["content"].strip()
-        prompt_imagen += f", vertical composition 4:5, cinematic atmosphere, sharp focus, establishing shot, no faces close up, single person ({sujeto}) in distance, no duplicate people, no text, modern 2026 era, no vintage, no rusty, no decayed"
+        prompt_imagen += ", vertical 4:5 cinematic horror poster style, volumetric fog, high contrast, one accent glow color, sharp focus, no text, no watermark"
         return prompt_imagen
     except Exception as e:
         print(f"❌ Error generando prompt de imagen: {e}")
-        return f"Vertical 4:5 cinematic photo, {sujeto} walking alone at distance in modern Mexican street at night, atmospheric fog, LED streetlamp lighting, mysterious mood, wide shot, no text, modern 2026 era, no vintage, no rusty"
+        return f"Vertical 4:5 cinematic horror film still, dark atmospheric scene with volumetric fog and one accent glow, {entidad}, wide shot, no text"
 
 # ================================================================
-# 📖 GENERAR HISTORIA COMPLETA (SIN HASHTAGS en el prompt)
+# 📖 GENERAR HISTORIA COMPLETA (300-340 palabras, con párrafos y personaje variado)
 # ================================================================
 def generar_historia_completa(tema):
     prompt = f"""Eres un INVESTIGADOR DE LEYENDAS URBANAS Y TRADICIÓN ORAL MEXICANA.
@@ -259,22 +297,26 @@ Tu tarea es DOCUMENTAR un testimonio COMPLETO y AUTOCONCLUSIVO sobre:
 🚨 REGLAS ESTRICTAS:
 - Ambientación: Mención EXACTA del lugar en México.
 - Narración en PRIMERA PERSONA, como si la persona te lo estuviera contando a ti.
-- Extensión: ENTRE 380 y 420 palabras. NI MÁS NI MENOS.
-- ESTRUCTURA OBLIGATORIA:
+- El narrador debe tener un PERFIL ÚNICO Y DIVERSO en cada historia. Varía el género, la edad (entre 20 y 70 años) y el oficio (ejemplos: profesor, taxista, enfermera, albañil, ama de casa, comerciante, policía, etc.). NO repitas el mismo perfil en historias consecutivas.
+- Extensión: ENTRE 300 y 340 palabras. (más breve y directo)
+- ESTRUCTURA OBLIGATORIA en PÁRRAFOS (cada párrafo separado por una línea en blanco):
   1. GANCHO inicial impactante (1-2 frases)
   2. CONTEXTO: quién es el narrador, dónde y cuándo ocurrió
-  3. DESARROLLO: los hechos sobrenaturales paso a paso, con detalles sensoriales
-  4. CLÍMAX: el momento más intenso del encuentro paranormal
-  5. DESENLACE: cómo terminó todo y qué le quedó al narrador
+  3. DESARROLLO: los hechos sobrenaturales paso a paso, con detalles sensoriales (2-3 párrafos)
+  4. CLÍMAX: el momento más intenso (1 párrafo)
+  5. DESENLACE: cómo terminó todo y qué le quedó al narrador (1 párrafo)
 - TERMINA la última oración completamente.
-- El narrador debe tener género y edad identificables.
 - Tono NATURAL Y COLOQUIAL, como alguien contando su experiencia real.
 - Detalles específicos: nombres de lugares reales, años concretos, oficios reales.
 
 Formato EXACTO de salida:
 🌙 **[Título descriptivo del suceso]**
 
-[Texto completo del testimonio, 380-420 palabras]
+[Primer párrafo]
+
+[Segundo párrafo]
+
+[... y así sucesivamente, separados por línea en blanco]
 
 (NO agregues hashtags ni llamadas a comentar, yo los agregaré después)
 """
@@ -297,8 +339,9 @@ Formato EXACTO de salida:
             if "[Error" in resultado or len(resultado) < 200:
                 raise ValueError("Respuesta muy corta o con error")
             
+            # Contar palabras (solo parte narrativa, sin título)
             lineas = resultado.split('\n')
-            texto_narrativo = '\n'.join(linea for linea in lineas if linea.strip() and not linea.strip().startswith('#') and not linea.strip().startswith('🌙'))
+            texto_narrativo = '\n'.join(linea for linea in lineas if linea.strip() and not linea.strip().startswith('🌙'))
             palabras = len(texto_narrativo.split())
             print(f"   📊 Palabras generadas: {palabras}")
             
@@ -316,10 +359,10 @@ Formato EXACTO de salida:
     return None
 
 # ================================================================
-# 💀 AGREGAR CTA FINAL + HASHTAGS + LEYENDA DE IA
+# 💀 AGREGAR CTA FINAL + HASHTAGS + LEYENDA DE IA (respeta párrafos)
 # ================================================================
 def agregar_cta_final(texto):
-    # 1. Quitar hashtags existentes (los re-agregaremos al final)
+    # 1. Quitar hashtags existentes
     texto = re.sub(r'#\w+', '', texto)
     
     # 2. Limpiar cualquier CTA previo
@@ -334,8 +377,7 @@ def agregar_cta_final(texto):
     for patron in patrones:
         texto = re.sub(patron, "", texto, flags=re.IGNORECASE | re.DOTALL)
     
-    # 3. Limpiar líneas vacías excesivas
-    texto = "\n".join(linea for linea in texto.split("\n") if linea.strip())
+    # 3. Asegurar que los párrafos se mantengan: solo eliminar líneas vacías excesivas
     texto = re.sub(r'\n{3,}', '\n\n', texto)
     
     # 4. Agregar CTA aleatorio
@@ -344,14 +386,14 @@ def agregar_cta_final(texto):
     # 5. Hashtags
     hashtags = "\n\n#LeyendasMexicanas #Terror #Misterio #Paranormal #Mexico"
     
-    # 6. 🆕 Leyenda de IA (obligatoria al final)
+    # 6. Leyenda de IA
     leyenda_ia = "\n\n_Imágenes generadas con IA_"
     
     # 7. Ensamblar todo en el orden correcto
     return texto.strip() + cta + hashtags + leyenda_ia
 
 # ================================================================
-# 🖼️ GENERAR IMAGEN CON AGNES AI (negative prompt moderno)
+# 🖼️ GENERAR IMAGEN CON AGNES AI (con reintentos)
 # ================================================================
 def generar_imagen_agnes(prompt, width=1080, height=1350, intentos=5, espera_segundos=15):
     prompt_limpio = prompt[:800]
@@ -428,7 +470,7 @@ def enviar_a_make(message, image_url):
 # MAIN
 # ================================================================
 def main():
-    print("👻 Iniciando Bot de Terror (1 relato completo, 3x diarios)")
+    print("👻 Iniciando Bot de Terror (1 relato completo, 300-340 palabras)")
     print(f"📅 {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
 
     if not all([DEEPSEEK_API_KEY, MAKE_WEBHOOK_URL_TERROR, AGNES_API_KEY]):
@@ -450,25 +492,29 @@ def main():
         print("❌ Falló la generación de la historia. Abortando sin guardar estado.")
         sys.exit(1)
 
-    print(f"✅ Historia completa generada ({len(historia_base.split())} palabras)")
+    print(f"✅ Historia completa generada ({len(historia_base.split())} palabras aprox)")
 
-    # Agregar CTA + hashtags + leyenda de IA
-    texto_final = agregar_cta_final(historia_base)
-    print("✅ CTA final, hashtags y leyenda de IA agregados")
-
+    # Detectar personaje para imagen
     print("🧑 Detectando personaje del relato...")
     personaje = detectar_personaje(historia_base)
 
-    print("🎨 Generando prompt de imagen moderno...")
-    prompt_imagen = generar_prompt_imagen_moderno(historia_base, tema, personaje)
+    # Generar prompt de imagen con el nuevo sistema
+    print("🎨 Generando prompt de imagen cinematográfico...")
+    prompt_imagen = generar_prompt_imagen(historia_base, tema, personaje)
     print(f"📝 Prompt de imagen: {prompt_imagen[:200]}...")
 
+    # Generar imagen (con reintentos)
     image_url = generar_imagen_agnes(prompt_imagen, width=1080, height=1350, intentos=5, espera_segundos=15)
 
     if image_url is None:
         print("⚠️ Falló imagen tras todos los reintentos, usando placeholder")
         image_url = "https://via.placeholder.com/1080x1350/1a1a1a/ff0000?text=Terror"
 
+    # Agregar CTA + hashtags + leyenda IA (respetando párrafos)
+    texto_final = agregar_cta_final(historia_base)
+    print("✅ CTA, hashtags y leyenda de IA agregados")
+
+    # Enviar a Make
     enviado = enviar_a_make(texto_final, image_url)
 
     if enviado:
