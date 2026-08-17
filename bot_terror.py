@@ -9,7 +9,7 @@ import requests
 import asyncio
 import edge_tts
 import numpy as np
-from moviepy import ImageClip, TextClip, CompositeVideoClip, AudioFileClip
+from moviepy import ImageClip, TextClip, CompositeVideoClip, AudioFileClip, concatenate_videoclips, CompositeAudioClip
 from cloudinary.uploader import upload
 import cloudinary
 from gtts import gTTS
@@ -62,6 +62,59 @@ VOCES_DISPONIBLES = [
     {"voz": "es-CL-CatalinaNeural", "velocidad": "+10%", "tono": "+1Hz"},
 ]
 CONFIG_VOZ_ACTUAL = random.choice(VOCES_DISPONIBLES)
+
+# ================================================================
+# 🎵 MÚSICA DE FONDO (descarga automática)
+# ================================================================
+FONDOS_MUSICA = [
+    "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3",
+    "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3",
+    "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3",
+    "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3",
+    "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-5.mp3",
+    "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-6.mp3",
+    "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-7.mp3",
+    "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-8.mp3",
+]
+ULTIMO_FONDO = None
+
+def descargar_musica_fondo():
+    """Descarga un archivo de música aleatorio si no existe localmente."""
+    global ULTIMO_FONDO
+    fondos_locales = [f for f in os.listdir(".") if f.endswith(".mp3") and f.startswith("musica_fondo_")]
+    if fondos_locales:
+        # Usar un archivo existente
+        fondo_path = random.choice(fondos_locales)
+        # Guardar para evitar repetir
+        if ULTIMO_FONDO and ULTIMO_FONDO == fondo_path:
+            # Si se repite, intentar otro
+            otros = [f for f in fondos_locales if f != ULTIMO_FONDO]
+            if otros:
+                fondo_path = random.choice(otros)
+        ULTIMO_FONDO = fondo_path
+        print(f"🎵 Usando música existente: {fondo_path}")
+        return fondo_path
+    
+    # Si no hay archivos locales, descargar uno
+    # Barajar las URLs para variar
+    urls = FONDOS_MUSICA.copy()
+    random.shuffle(urls)
+    for url in urls:
+        try:
+            print(f"🎵 Descargando música: {url}")
+            r = requests.get(url, timeout=30)
+            if r.status_code == 200:
+                filename = f"musica_fondo_{random.randint(1000,9999)}.mp3"
+                with open(filename, "wb") as f:
+                    f.write(r.content)
+                print(f"✅ Música descargada: {filename}")
+                ULTIMO_FONDO = filename
+                return filename
+        except Exception as e:
+            print(f"⚠️ Error descargando música: {e}")
+            continue
+    print("⚠️ No se pudo descargar música de fondo. Se usará solo narración.")
+    return None
 
 # ================================================================
 # 🖼️ GENERAR PLACEHOLDER LOCAL Y SUBIR A CLOUDINARY
@@ -479,7 +532,7 @@ def agregar_cta_final(texto):
     return texto.strip() + cta + hashtags + leyenda_ia
 
 # ================================================================
-# 📝 GENERAR RESUMEN PARA REEL
+# 📝 GENERAR RESUMEN PARA REEL (y dividirlo en segmentos)
 # ================================================================
 def generar_resumen_reel(historia_completa):
     prompt = f"""Resume el siguiente relato de terror en un texto CORTO y ATMOSFÉRICO de EXACTAMENTE 100 palabras, ideal para un Reel de Facebook.
@@ -517,6 +570,31 @@ Devuelve SOLO el resumen, sin títulos, sin hashtags, sin llamados a la acción.
         print(f"❌ Error generando resumen: {e}")
         palabras = historia_completa.split()
         return " ".join(palabras[:100]) + "..."
+
+def dividir_resumen_en_segmentos(resumen, num_segmentos=3):
+    """Divide el resumen en segmentos basados en oraciones o palabras."""
+    oraciones = re.split(r'(?<=[.!?])\s+', resumen)
+    if len(oraciones) >= num_segmentos:
+        # Dividir por oraciones
+        segmentos = []
+        oraciones_por_seg = len(oraciones) // num_segmentos
+        for i in range(num_segmentos):
+            inicio = i * oraciones_por_seg
+            fin = (i + 1) * oraciones_por_seg if i < num_segmentos - 1 else len(oraciones)
+            segmentos.append(" ".join(oraciones[inicio:fin]))
+        return segmentos
+    else:
+        # Dividir por palabras
+        palabras = resumen.split()
+        if len(palabras) < num_segmentos * 5:
+            return [resumen]  # Muy corto
+        segmentos = []
+        palabras_por_seg = len(palabras) // num_segmentos
+        for i in range(num_segmentos):
+            inicio = i * palabras_por_seg
+            fin = (i + 1) * palabras_por_seg if i < num_segmentos - 1 else len(palabras)
+            segmentos.append(" ".join(palabras[inicio:fin]))
+        return segmentos
 
 # ================================================================
 # 🖼️ GENERAR IMAGEN CON AGNES
@@ -661,13 +739,9 @@ def generar_audio_edge_tts(texto, index):
     return None
 
 # ================================================================
-# 🎥 ZOOM LENTO (Ken Burns Effect) – CORREGIDO con .transform() y duración previa
+# 🎥 ZOOM LENTO (Ken Burns Effect)
 # ================================================================
 def aplicar_zoom_lento(clip, zoom_final=1.10):
-    """
-    Aplica un zoom in suave del 10% durante la duración del clip.
-    Requiere que clip.duration ya tenga un valor (no None).
-    """
     dur = clip.duration
     if dur is None or dur <= 0:
         return clip
@@ -684,126 +758,220 @@ def aplicar_zoom_lento(clip, zoom_final=1.10):
         img = img.crop((left, top, left + w, top + h))
         return np.array(img)
     
-    # En moviepy 2.x se usa .transform() en lugar de .fl()
     return clip.transform(efecto)
 
 # ================================================================
-# 🎬 CREAR VIDEO Y SUBIR A CLOUDINARY (CON ZOOM LENTO CORREGIDO)
+# 🎬 CREAR VIDEO CON MÚLTIPLES ESCENAS, MÚSICA Y SUBTÍTULOS
 # ================================================================
-def crear_y_subir_video(texto, imagen_url):
+def crear_y_subir_video(texto, imagen_url, historia_completa, tema, personaje, num_escenas=3):
     if not CLOUDINARY_DISPONIBLE:
         print("❌ Cloudinary no configurado.")
         return None
 
-    print("🎬 Creando video Reel con narración y zoom lento...")
+    print("🎬 Creando video Reel con múltiples escenas, música y subtítulos...")
     
-    img_path = None
-    if imagen_url and imagen_url.startswith("http"):
-        img_data = descargar_imagen_con_retry(imagen_url)
-        if img_data:
-            img_path = "temp_background.jpg"
-            with open(img_path, "wb") as f:
-                f.write(img_data)
-            print("✅ Imagen descargada")
-        else:
-            print("⚠️ No se pudo descargar la imagen, usando placeholder")
+    # 1. Dividir el resumen en segmentos para generar imágenes
+    if len(texto.split()) < 20:
+        # Si el resumen es muy corto, usar una sola imagen
+        segmentos_texto = [texto]
+        num_escenas = 1
     else:
-        if imagen_url and os.path.exists(imagen_url):
-            img_path = imagen_url
-        else:
-            img_path = generar_y_subir_placeholder("Reel", (1080, 1920))
-            if not img_path:
-                print("❌ No se pudo generar placeholder. Abortando.")
-                return None
-            img_data = descargar_imagen_con_retry(img_path)
-            if img_data:
-                img_path = "temp_background.jpg"
-                with open(img_path, "wb") as f:
-                    f.write(img_data)
-            else:
-                print("❌ No se pudo descargar placeholder")
-                return None
+        segmentos_texto = dividir_resumen_en_segmentos(texto, num_escenas)
     
-    if not img_path or not os.path.exists(img_path):
-        print("❌ No existe archivo de imagen")
-        return None
-
+    print(f"📝 Generando {len(segmentos_texto)} imágenes para las escenas del Reel...")
+    
+    # 2. Generar imágenes para cada segmento
+    urls_imagenes = []
+    for i, seg in enumerate(segmentos_texto):
+        # Usar el segmento como contexto para el prompt
+        prompt_seg = f"Escena de la historia: {seg}\n\n{historia_completa[:300]}"
+        img_prompt = generar_prompt_imagen(prompt_seg, tema, personaje)
+        img_url = generar_imagen_agnes(img_prompt, width=1080, height=1920, intentos=2, espera_segundos=10)
+        if img_url:
+            urls_imagenes.append(img_url)
+            print(f"✅ Imagen {i+1}/{len(segmentos_texto)} generada")
+        else:
+            # Fallback: usar la imagen general del Reel
+            if imagen_url:
+                urls_imagenes.append(imagen_url)
+                print(f"⚠️ Imagen {i+1} falló, usando imagen general del Reel")
+            else:
+                placeholder = generar_y_subir_placeholder(f"Escena {i+1}", (1080, 1920))
+                urls_imagenes.append(placeholder if placeholder else imagen_url)
+    
+    # Asegurar al menos 3 imágenes, rellenando con placeholders si es necesario
+    while len(urls_imagenes) < 3:
+        placeholder = generar_y_subir_placeholder(f"Escena {len(urls_imagenes)+1}", (1080, 1920))
+        urls_imagenes.append(placeholder if placeholder else "https://via.placeholder.com/1080x1920/1a1a1a/ff0000?text=Escena")
+    
+    # Limitar a num_escenas (máximo 5 para no saturar)
+    if len(urls_imagenes) > 5:
+        urls_imagenes = urls_imagenes[:5]
+    
+    # 3. Generar audio de narración
     print("🔊 Generando narración con edge-tts...")
     audio_path = generar_audio_edge_tts(texto, "reel")
     if not audio_path:
         print("❌ No se pudo generar audio.")
         return None
     
-    try:
-        clip = ImageClip(img_path).resized((1080, 1920))
-    except Exception as e:
-        print(f"❌ Error procesando imagen: {e}")
-        return None
-    
+    # 4. Cargar audio
     try:
         audio_clip = AudioFileClip(audio_path)
-        duracion = audio_clip.duration
-        print(f"🎵 Duración del audio: {duracion:.1f}s")
+        duracion_total = audio_clip.duration
+        print(f"🎵 Duración del audio: {duracion_total:.1f}s")
     except Exception as e:
         print(f"❌ Error cargando audio: {e}")
         return None
     
-    # 🔥 FIX 1: Asignar la duración ANTES de aplicar el zoom
-    clip = clip.with_duration(duracion)
+    # 5. Descargar música de fondo
+    fondo_path = descargar_musica_fondo()
+    fondo_audio = None
+    if fondo_path and os.path.exists(fondo_path):
+        try:
+            fondo_audio = AudioFileClip(fondo_path)
+            # Ajustar duración al audio de narración
+            if fondo_audio.duration < duracion_total:
+                veces = int(duracion_total / fondo_audio.duration) + 1
+                from moviepy import concatenate_audioclips
+                fondo_audio = concatenate_audioclips([fondo_audio] * veces)
+            fondo_audio = fondo_audio.subclipped(0, duracion_total).with_volume_scaled(0.08)
+            print("🎵 Música de fondo cargada")
+        except Exception as e:
+            print(f"⚠️ Error con música de fondo: {e}")
+            fondo_audio = None
     
-    # 🔥 Ahora aplicar zoom (clip ya tiene duración definida)
-    print("🎥 Aplicando zoom lento (Ken Burns)...")
-    clip = aplicar_zoom_lento(clip, zoom_final=1.10)
+    # 6. Crear clips de video para cada imagen
+    clips = []
+    duracion_por_segmento = duracion_total / len(urls_imagenes)
     
-    # Texto superpuesto (opcional, con fallback)
-    lineas = []
+    for i, url_img in enumerate(urls_imagenes):
+        print(f"🖼️ Procesando escena {i+1}/{len(urls_imagenes)}...")
+        # Descargar imagen
+        img_data = descargar_imagen_con_retry(url_img)
+        if img_data:
+            img_path = f"temp_scene_{i}.jpg"
+            with open(img_path, "wb") as f:
+                f.write(img_data)
+        else:
+            # Usar placeholder
+            placeholder = generar_y_subir_placeholder(f"Escena {i+1}", (1080, 1920))
+            if placeholder:
+                img_data = descargar_imagen_con_retry(placeholder)
+                if img_data:
+                    img_path = f"temp_scene_{i}.jpg"
+                    with open(img_path, "wb") as f:
+                        f.write(img_data)
+                else:
+                    continue
+            else:
+                continue
+        
+        try:
+            clip = ImageClip(img_path).resized((1080, 1920))
+            clip = clip.with_duration(duracion_por_segmento)
+            # Aplicar zoom lento
+            clip = aplicar_zoom_lento(clip, zoom_final=1.10)
+            clips.append(clip)
+        except Exception as e:
+            print(f"⚠️ Error procesando escena {i+1}: {e}")
+            continue
+    
+    if not clips:
+        print("❌ No se pudieron crear clips. Usando imagen única.")
+        # Fallback: usar una sola imagen
+        img_data = descargar_imagen_con_retry(imagen_url)
+        if img_data:
+            img_path = "temp_fallback.jpg"
+            with open(img_path, "wb") as f:
+                f.write(img_data)
+            clip = ImageClip(img_path).resized((1080, 1920))
+            clip = clip.with_duration(duracion_total)
+            clip = aplicar_zoom_lento(clip, zoom_final=1.10)
+            clips = [clip]
+    
+    # 7. Concatenar clips de video
+    video_final = concatenate_videoclips(clips, method="compose")
+    video_final = video_final.with_duration(duracion_total)
+    
+    # 8. Agregar subtítulos (usando TextClip con fuente .ttf descargada)
+    # Descargar una fuente .ttf si no existe
+    fuente_path = "DejaVuSans.ttf"
+    if not os.path.exists(fuente_path):
+        try:
+            print("📥 Descargando fuente DejaVuSans.ttf...")
+            fuente_url = "https://github.com/dejavu-fonts/dejavu-fonts/raw/master/ttf/DejaVuSans.ttf"
+            r = requests.get(fuente_url, timeout=30)
+            if r.status_code == 200:
+                with open(fuente_path, "wb") as f:
+                    f.write(r.content)
+                print("✅ Fuente descargada")
+            else:
+                print("⚠️ No se pudo descargar fuente, se omitirán subtítulos")
+                fuente_path = None
+        except Exception as e:
+            print(f"⚠️ Error descargando fuente: {e}")
+            fuente_path = None
+    
+    # Dividir el texto en líneas para subtítulos
+    lineas_texto = []
     palabras = texto.split()
     linea_actual = ""
     for palabra in palabras:
         if len(linea_actual) + len(palabra) + 1 <= 35:
             linea_actual += (palabra + " ")
         else:
-            lineas.append(linea_actual.strip())
+            lineas_texto.append(linea_actual.strip())
             linea_actual = palabra + " "
     if linea_actual:
-        lineas.append(linea_actual.strip())
+        lineas_texto.append(linea_actual.strip())
     
-    txt_clip = None
-    for fuente in ['Arial', 'DejaVu-Sans']:
+    texto_subtitulo = "\n".join(lineas_texto)
+    
+    subtitulo_clip = None
+    if fuente_path and os.path.exists(fuente_path):
         try:
-            txt_clip = TextClip(
-                text="\n".join(lineas),
-                font_size=40,
+            subtitulo_clip = TextClip(
+                text=texto_subtitulo,
+                font=fuente_path,
+                font_size=36,
                 color='white',
                 stroke_color='black',
                 stroke_width=2,
-                font=fuente,
                 method='caption',
                 size=(1000, 1800),
                 text_align='center',
             )
-            txt_clip = txt_clip.with_duration(duracion).with_position('center')
-            print(f"✅ Texto superpuesto con {fuente}")
-            break
+            subtitulo_clip = subtitulo_clip.with_duration(duracion_total).with_position('center')
+            print("✅ Subtítulos agregados con fuente descargada")
         except Exception as e:
-            print(f"⚠️ Fuente {fuente} no disponible: {e}")
-    
-    if txt_clip:
-        final = CompositeVideoClip([clip, txt_clip])
+            print(f"⚠️ Error creando subtítulos: {e}")
+            subtitulo_clip = None
     else:
-        print("⚠️ No se puso texto, solo audio")
-        final = clip
+        print("⚠️ Sin fuente, no se agregaron subtítulos")
     
-    final = final.with_audio(audio_clip)
+    # 9. Combinar video, subtítulos y audio
+    if subtitulo_clip:
+        video_final = CompositeVideoClip([video_final, subtitulo_clip])
     
+    # Mezclar audio de narración con música de fondo
+    if fondo_audio:
+        audio_final = CompositeAudioClip([audio_clip, fondo_audio])
+    else:
+        audio_final = audio_clip
+    
+    video_final = video_final.with_audio(audio_final)
+    
+    # 10. Exportar
     output_path = "reel.mp4"
     try:
-        final.write_videofile(output_path, fps=24, codec='libx264', logger=None)
+        video_final.write_videofile(output_path, fps=24, codec='libx264', logger=None)
         print(f"✅ Video guardado en {output_path}")
     except Exception as e:
         print(f"❌ Error exportando: {e}")
         return None
     
+    # 11. Subir a Cloudinary
     print("📤 Subiendo a Cloudinary...")
     try:
         result = upload(
@@ -819,7 +987,7 @@ def crear_y_subir_video(texto, imagen_url):
         print(f"❌ Error subiendo a Cloudinary: {e}")
         return None
     finally:
-        for f in [output_path, "temp_background.jpg", audio_path]:
+        for f in [output_path, audio_path, fondo_path] + [f"temp_scene_{i}.jpg" for i in range(len(clips))]:
             try:
                 if f and os.path.exists(f):
                     os.remove(f)
@@ -831,7 +999,7 @@ def crear_y_subir_video(texto, imagen_url):
 # ================================================================
 def main():
     print(f"🎤 Voz inicial: {CONFIG_VOZ_ACTUAL['voz']} ({CONFIG_VOZ_ACTUAL['velocidad']})")
-    print("👻 Iniciando Bot de Terror (edge-tts + Zoom Lento + Cloudinary + Make)")
+    print("👻 Iniciando Bot de Terror (edge-tts + Zoom Lento + Música + Subtítulos + 3 Escenas)")
     print(f"📅 {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
 
     if not all([DEEPSEEK_API_KEY, MAKE_WEBHOOK_URL_TERROR, AGNES_API_KEY]):
@@ -856,7 +1024,7 @@ def main():
     print("🧑 Detectando personaje y época...")
     personaje = detectar_personaje_y_epoca(historia_base)
 
-    # Extraer título de la historia (línea que empieza con "🌙")
+    # Extraer título de la historia
     titulo_historia = "Relato de terror"
     for linea in historia_base.split('\n'):
         if linea.strip().startswith('🌙'):
@@ -872,7 +1040,7 @@ def main():
         sys.exit(1)
     print(f"📷 URL post: {image_url[:60]}...")
 
-    # --- Imagen para Reel (9:16) ---
+    # --- Imagen general para Reel (9:16) - fallback si fallan las escenas ---
     print("🎨 Generando prompt para Reel...")
     prompt_reel = prompt_post.replace("4:5", "9:16")
     image_reel_url = generar_imagen_agnes(prompt_reel, width=1080, height=1920, intentos=3)
@@ -890,10 +1058,17 @@ def main():
     resumen_reel = generar_resumen_reel(historia_base)
     print(f"✅ Resumen: {len(resumen_reel.split())} palabras")
 
-    # --- Crear video y subir a Cloudinary ---
+    # --- Crear video con múltiples escenas y subir a Cloudinary ---
     reel_video_url = None
     if CLOUDINARY_DISPONIBLE:
-        reel_video_url = crear_y_subir_video(resumen_reel, image_reel_url)
+        reel_video_url = crear_y_subir_video(
+            texto=resumen_reel,
+            imagen_url=image_reel_url,
+            historia_completa=historia_base,
+            tema=tema,
+            personaje=personaje,
+            num_escenas=3
+        )
         if not reel_video_url:
             print("⚠️ Falló la creación/subida del video.")
     else:
