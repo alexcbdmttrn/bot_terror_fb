@@ -40,53 +40,6 @@ else:
     print("⚠️ Cloudinary no configurado. No se podrán subir placeholders ni videos.")
 
 # ================================================================
-# 🎨 PALETAS Y ESTILOS
-# ================================================================
-PALETAS_COLOR = [
-    "Cold cyan blue LED fog, navy blue modern shadows, crisp white moonlight",
-    "Emerald green twilight, modern city haze, muted sage ambient lighting",
-    "Deep violet LED haze, electric purple ambient light, dark magenta shadows",
-    "Slate gray modern tones, freezing ice blue highlight, dim overcast ambient",
-    "Dark teal and deep blue, modern oceanic midnight, cold misty atmosphere",
-    "Stark black and white high contrast, silver moonlight, modern pitch shadows",
-    "Desaturated cold film look, moody cinematic lighting, 8k hyperrealistic",
-    "Neon purple and electric pink, deep violet shadows, cyberpunk modern lights",
-    "Electric yellow and charcoal black, stark contrast, dusty atmospheric haze",
-    "Deep crimson red, pitch black shadow, intense orange emergency LED lights",
-    "Blood red and burnt orange, modern charcoal shadows, hellish glow",
-    "Modern warm amber and dark mahogany, golden LED lighting, deep brown shadows",
-    "Fiery sunset orange, deep purple shadows, modern red highlights",
-    "Toxic lime green and pitch black, eerie chemical modern glow, radioactive haze",
-    "Clean modern daylight, neutral gray ambient, crisp shadows",
-    "Modern LED streetlight glow, cool white highlights, urban night atmosphere",
-]
-PALETA_COLOR_ACTUAL = random.choice(PALETAS_COLOR)
-
-ESTILOS_VISUALES = [
-    "Modern 2026 cinematic photograph, bright contemporary lighting, well-lit scene, sharp focus, current era",
-    "Contemporary thriller photography 2026, soft modern ambient diffusion, bright highlights, present day",
-    "Modern documentary realistic photo 2026, natural crisp skin texture, current fashion and architecture",
-    "8k resolution modern cinematic frame, ultra clear facial details, bright exposure, contemporary era",
-    "Modern fashion photography style 2026, dramatic but well-lit, clean skin, current trends",
-    "Modern noir style 2026, high contrast but well-exposed, contemporary urban atmosphere",
-]
-ESTILO_VISUAL_ACTUAL = random.choice(ESTILOS_VISUALES)
-
-# ================================================================
-# 💀 CTA FINAL
-# ================================================================
-CTAS_FINALES = [
-    "\n\n💀 ¿Te ha pasado algo parecido? Cuéntanos tu historia en comentarios. 👇",
-    "\n\n👻 ¿Conoces una leyenda similar? Compártela en los comentarios. 👇",
-    "\n\n🌙 ¿Qué harías tú en esta situación? Te leemos en comentarios. 👇",
-    "\n\n👁️ ¿Crees que estas historias son reales? Déjanos tu opinión. 👇",
-    "\n\n🔮 ¿Has vivido algo sobrenatural? Cuéntanos tu experiencia. 👇",
-    "\n\n😱 ¿Te atreverías a visitar este lugar? Cuéntanos. 👇",
-    "\n\n🌑 ¿Conoces más historias así? Compártelas en comentarios. 👇",
-    "\n\n💬 Tu historia puede ser la siguiente. Cuéntanos. 👇",
-]
-
-# ================================================================
 # 🖼️ GENERAR PLACEHOLDER LOCAL Y SUBIR A CLOUDINARY
 # ================================================================
 def generar_y_subir_placeholder(texto="Imagen no disponible", size=(1080, 1350)):
@@ -172,13 +125,27 @@ def limpiar_texto_para_imagen(texto):
     return texto.strip()
 
 def limpiar_texto_para_audio(texto):
-    # Solo eliminamos emojis y caracteres no imprimibles, pero preservamos acentos y eñes
+    """
+    Limpia el texto para gTTS: elimina caracteres especiales que se pronuncian literalmente
+    (comillas, guiones, puntos suspensivos, etc.) pero mantiene eñes y acentos.
+    """
+    # Eliminar emojis
     texto = re.sub(r'[\U0001F600-\U0001F64F\U0001F300-\U0001F5FF\U0001F680-\U0001F6FF\U0001F700-\U0001F77F\U0001F780-\U0001F7FF\U0001F800-\U0001F8FF\U0001F900-\U0001F9FF\U0001FA00-\U0001FA6F\U0001FA70-\U0001FAFF\U00002700-\U000027BF\U000024C2-\U0001F251]', '', texto)
+    # Eliminar caracteres de control
     texto = re.sub(r'[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]', '', texto)
-    texto = texto.replace('"', "'")
-    texto = texto.replace('\n', ' ')
+    # Reemplazar comillas y guiones por espacio o eliminarlos
+    texto = re.sub(r'["\'\`´]', '', texto)  # elimina comillas simples y dobles
+    texto = re.sub(r'[—–\-]', ' ', texto)    # reemplaza guiones por espacio
+    texto = re.sub(r'\.\.\.', ' ', texto)    # reemplaza puntos suspensivos por espacio
+    texto = re.sub(r'[()\[\]{}<>]', '', texto)  # elimina paréntesis, corchetes, etc.
+    texto = re.sub(r'[.,;:!?]', '. ', texto)  # reemplaza puntuación por punto y espacio
+    # Eliminar espacios múltiples
     texto = re.sub(r'\s+', ' ', texto)
-    return texto.strip()
+    # Asegurar que haya punto al final si es necesario
+    texto = texto.strip()
+    if texto and not texto.endswith('.'):
+        texto += '.'
+    return texto
 
 def descargar_imagen_con_retry(url, intentos=3, timeout=30):
     for i in range(intentos):
@@ -190,6 +157,20 @@ def descargar_imagen_con_retry(url, intentos=3, timeout=30):
             print(f"   ⚠️ Error descargando imagen (intento {i+1}): {e}")
             time.sleep(2)
     return None
+
+# ================================================================
+# 💀 CTA FINAL
+# ================================================================
+CTAS_FINALES = [
+    "\n\n💀 ¿Te ha pasado algo parecido? Cuéntanos tu historia en comentarios. 👇",
+    "\n\n👻 ¿Conoces una leyenda similar? Compártela en los comentarios. 👇",
+    "\n\n🌙 ¿Qué harías tú en esta situación? Te leemos en comentarios. 👇",
+    "\n\n👁️ ¿Crees que estas historias son reales? Déjanos tu opinión. 👇",
+    "\n\n🔮 ¿Has vivido algo sobrenatural? Cuéntanos tu experiencia. 👇",
+    "\n\n😱 ¿Te atreverías a visitar este lugar? Cuéntanos. 👇",
+    "\n\n🌑 ¿Conoces más historias así? Compártelas en comentarios. 👇",
+    "\n\n💬 Tu historia puede ser la siguiente. Cuéntanos. 👇",
+]
 
 # ================================================================
 # 🧑 DETECTAR PERSONAJE
@@ -276,7 +257,7 @@ DIRECTRICES_ENTIDAD = {
 }
 
 # ================================================================
-# 🎨 GENERAR PROMPT DE IMAGEN
+# 🎨 GENERAR PROMPT DE IMAGEN (NEUTRALIZADO)
 # ================================================================
 def generar_prompt_imagen(historia, tema, personaje):
     tipo = detectar_tipo_entidad(tema)
@@ -436,7 +417,7 @@ Formato EXACTO de salida:
     return None
 
 # ================================================================
-# 💀 AGREGAR CTA + HASHTAGS + LEYENDA IA (para el post)
+# 💀 AGREGAR CTA + HASHTAGS + LEYENDA IA
 # ================================================================
 def agregar_cta_final(texto):
     texto = re.sub(r'#\w+', '', texto)
@@ -457,7 +438,7 @@ def agregar_cta_final(texto):
     return texto.strip() + cta + hashtags + leyenda_ia
 
 # ================================================================
-# 📝 GENERAR RESUMEN PARA REEL (incluye leyenda IA en el texto superpuesto, NO en audio)
+# 📝 GENERAR RESUMEN PARA REEL (limpio para audio)
 # ================================================================
 def generar_resumen_reel(historia_completa):
     prompt = f"""Resume el siguiente relato de terror en un texto CORTO y ATMOSFÉRICO de EXACTAMENTE 100 palabras, ideal para un Reel de Facebook.
@@ -560,22 +541,19 @@ def generar_imagen_agnes(prompt, width=1080, height=1350, intentos=5, espera_seg
         return fallback_url
 
 # ================================================================
-# 🎤 GENERAR AUDIO CON GTTS (velocidad normal, español)
+# 🎤 GENERAR AUDIO CON GTTS (con velocidad más lenta y texto limpio)
 # ================================================================
-def generar_audio_gtts(texto, index, slow=False):
-    """
-    Genera audio con gTTS.
-    slow=False: velocidad normal (recomendado para español).
-    """
+def generar_audio_gtts(texto, index):
     texto_limpio = limpiar_texto_para_audio(texto)
     if len(texto_limpio) < 30:
         texto_limpio = "Esa noche en la carretera, el silencio era tan denso que podía cortarse con un cuchillo."
     filename = f"narracion_{index}.mp3"
     try:
-        tts = gTTS(text=texto_limpio, lang='es', slow=slow)
+        # slow=True hace que hable más despacio (aproximadamente un 20-30% más lento)
+        tts = gTTS(text=texto_limpio, lang='es', slow=True)
         tts.save(filename)
         if os.path.exists(filename) and os.path.getsize(filename) > 0:
-            print(f"🔊 Audio generado con gTTS (slow={slow})")
+            print(f"🔊 Audio generado con gTTS (velocidad lenta)")
             return filename
     except Exception as e:
         print(f"❌ gTTS falló: {e}")
@@ -584,28 +562,14 @@ def generar_audio_gtts(texto, index, slow=False):
 # ================================================================
 # 🎬 CREAR VIDEO Y SUBIR A CLOUDINARY
 # ================================================================
-def crear_y_subir_video(texto_resumen, imagen_url):
-    """
-    Crea un video Reel con:
-    - Imagen de fondo (descargada o placeholder)
-    - Texto superpuesto (resumen + leyenda IA)
-    - Audio con la narración del resumen (sin la leyenda IA)
-    """
+def crear_y_subir_video(texto, imagen_url):
     if not CLOUDINARY_DISPONIBLE:
         print("❌ Cloudinary no configurado.")
         return None
 
     print("🎬 Creando video Reel con narración...")
-
-    # --- 1. Preparar texto para audio (sin leyenda IA) ---
-    texto_audio = limpiar_texto_para_audio(texto_resumen)
-    if not texto_audio:
-        texto_audio = "Historia de terror."
-
-    # --- 2. Preparar texto para superponer (con leyenda IA) ---
-    texto_superpuesto = texto_resumen + "\n\n_Imágenes generadas con IA_"
-
-    # --- 3. Descargar imagen ---
+    
+    # 1. Descargar imagen
     img_path = None
     if imagen_url and imagen_url.startswith("http"):
         img_data = descargar_imagen_con_retry(imagen_url)
@@ -617,43 +581,41 @@ def crear_y_subir_video(texto_resumen, imagen_url):
         else:
             print("⚠️ No se pudo descargar la imagen, usando placeholder")
     else:
-        # Si es archivo local, usar directamente o generar placeholder
         if imagen_url and os.path.exists(imagen_url):
             img_path = imagen_url
         else:
-            placeholder_url = generar_y_subir_placeholder("Reel", (1080, 1920))
-            if placeholder_url:
-                img_data = descargar_imagen_con_retry(placeholder_url)
-                if img_data:
-                    img_path = "temp_background.jpg"
-                    with open(img_path, "wb") as f:
-                        f.write(img_data)
-                else:
-                    print("❌ No se pudo descargar placeholder")
-                    return None
-            else:
-                print("❌ No se pudo generar placeholder")
+            img_path = generar_y_subir_placeholder("Reel", (1080, 1920))
+            if not img_path:
+                print("❌ No se pudo generar placeholder. Abortando.")
                 return None
-
+            img_data = descargar_imagen_con_retry(img_path)
+            if img_data:
+                img_path = "temp_background.jpg"
+                with open(img_path, "wb") as f:
+                    f.write(img_data)
+            else:
+                print("❌ No se pudo descargar placeholder")
+                return None
+    
     if not img_path or not os.path.exists(img_path):
         print("❌ No existe archivo de imagen")
         return None
 
-    # --- 4. Generar audio (con texto sin leyenda IA) ---
+    # 2. Generar audio
     print("🔊 Generando narración...")
-    audio_path = generar_audio_gtts(texto_audio, "reel", slow=False)
+    audio_path = generar_audio_gtts(texto, "reel")
     if not audio_path:
         print("❌ No se pudo generar audio.")
         return None
-
-    # --- 5. Crear clip de imagen ---
+    
+    # 3. Crear clip de imagen
     try:
         clip = ImageClip(img_path).resized((1080, 1920))
     except Exception as e:
         print(f"❌ Error procesando imagen: {e}")
         return None
-
-    # --- 6. Cargar audio ---
+    
+    # 4. Cargar audio
     try:
         audio_clip = AudioFileClip(audio_path)
         duracion = audio_clip.duration
@@ -661,11 +623,10 @@ def crear_y_subir_video(texto_resumen, imagen_url):
     except Exception as e:
         print(f"❌ Error cargando audio: {e}")
         return None
-
-    # --- 7. Añadir texto superpuesto (con leyenda IA) ---
-    # Dividir en líneas para que quepa en pantalla
+    
+    # 5. Añadir texto superpuesto (con fallback a Arial o sin texto)
     lineas = []
-    palabras = texto_superpuesto.split()
+    palabras = texto.split()
     linea_actual = ""
     for palabra in palabras:
         if len(linea_actual) + len(palabra) + 1 <= 35:
@@ -675,42 +636,51 @@ def crear_y_subir_video(texto_resumen, imagen_url):
             linea_actual = palabra + " "
     if linea_actual:
         lineas.append(linea_actual.strip())
-
+    
     try:
-        # Intentar con Arial, si falla usar None
-        try:
-            # En Ubuntu suele estar en /usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf
-            font_path = "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf"
-            if not os.path.exists(font_path):
-                font_path = None
-        except:
-            font_path = None
-
+        # Probar con Arial primero, que suele estar disponible
         txt_clip = TextClip(
             text="\n".join(lineas),
             font_size=40,
             color='white',
             stroke_color='black',
             stroke_width=2,
-            font=font_path,  # None usa la fuente predeterminada de Pillow
+            font='Arial',
             method='caption',
             size=(1000, 1800),
             text_align='center',
         )
         txt_clip = txt_clip.with_duration(duracion).with_position('center')
+        print("✅ Texto superpuesto con Arial")
     except Exception as e:
-        print(f"⚠️ Error creando texto, usando sin texto: {e}")
-        txt_clip = None
-
-    # --- 8. Combinar video ---
+        print(f"⚠️ Error creando texto con Arial, intentando DejaVu-Sans...")
+        try:
+            txt_clip = TextClip(
+                text="\n".join(lineas),
+                font_size=40,
+                color='white',
+                stroke_color='black',
+                stroke_width=2,
+                font='DejaVu-Sans',
+                method='caption',
+                size=(1000, 1800),
+                text_align='center',
+            )
+            txt_clip = txt_clip.with_duration(duracion).with_position('center')
+            print("✅ Texto superpuesto con DejaVu-Sans")
+        except Exception as e2:
+            print(f"⚠️ Error creando texto, usando sin texto: {e2}")
+            txt_clip = None
+    
+    # 6. Combinar
     clip = clip.with_duration(duracion)
     if txt_clip:
         final = CompositeVideoClip([clip, txt_clip])
     else:
         final = clip
     final = final.with_audio(audio_clip)
-
-    # --- 9. Exportar (sin verbose) ---
+    
+    # 7. Exportar (sin verbose)
     output_path = "reel.mp4"
     try:
         final.write_videofile(output_path, fps=24, codec='libx264', logger=None)
@@ -718,8 +688,8 @@ def crear_y_subir_video(texto_resumen, imagen_url):
     except Exception as e:
         print(f"❌ Error exportando: {e}")
         return None
-
-    # --- 10. Subir a Cloudinary ---
+    
+    # 8. Subir a Cloudinary
     print("📤 Subiendo a Cloudinary...")
     try:
         result = upload(
@@ -746,7 +716,7 @@ def crear_y_subir_video(texto_resumen, imagen_url):
 # MAIN
 # ================================================================
 def main():
-    print("👻 Iniciando Bot de Terror (gTTS → Cloudinary → Make)")
+    print("👻 Iniciando Bot de Terror (gTTS lento → Cloudinary → Make)")
     print(f"📅 {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
 
     if not all([DEEPSEEK_API_KEY, MAKE_WEBHOOK_URL_TERROR, AGNES_API_KEY]):
