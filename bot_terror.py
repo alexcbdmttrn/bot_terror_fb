@@ -6,11 +6,10 @@ import re
 import sys
 import time
 import requests
-import moviepy.editor as mp
+from moviepy import ImageClip, TextClip, CompositeVideoClip, AudioFileClip
 from cloudinary.uploader import upload
 import cloudinary
-import edge_tts
-import asyncio
+from gtts import gTTS
 
 # ================================================================
 # CONFIGURACIÓN
@@ -19,16 +18,12 @@ DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY")
 MAKE_WEBHOOK_URL_TERROR = os.getenv("MAKE_WEBHOOK_URL_TERROR")
 AGNES_API_KEY = os.getenv("AGNES_API_KEY")
 
-# Cloudinary
 CLOUD_NAME = os.getenv("CLOUDINARY_CLOUD_NAME")
 CLOUD_API_KEY = os.getenv("CLOUDINARY_API_KEY")
 CLOUD_API_SECRET = os.getenv("CLOUDINARY_API_SECRET")
 
 ESTADO_FILE = "estado_terror.json"
 
-# ================================================================
-# CONFIGURAR CLOUDINARY
-# ================================================================
 if all([CLOUD_NAME, CLOUD_API_KEY, CLOUD_API_SECRET]):
     cloudinary.config(
         cloud_name=CLOUD_NAME,
@@ -41,7 +36,7 @@ else:
     print("⚠️ Cloudinary no configurado. No se podrán subir videos.")
 
 # ================================================================
-# 🎨 PALETAS MODERNAS 2026
+# 🎨 PALETAS Y ESTILOS
 # ================================================================
 PALETAS_COLOR = [
     "Cold cyan blue LED fog, navy blue modern shadows, crisp white moonlight",
@@ -63,9 +58,6 @@ PALETAS_COLOR = [
 ]
 PALETA_COLOR_ACTUAL = random.choice(PALETAS_COLOR)
 
-# ================================================================
-# 📷 ESTILOS VISUALES MODERNOS 2026
-# ================================================================
 ESTILOS_VISUALES = [
     "Modern 2026 cinematic photograph, bright contemporary lighting, well-lit scene, sharp focus, current era",
     "Contemporary thriller photography 2026, soft modern ambient diffusion, bright highlights, present day",
@@ -76,9 +68,6 @@ ESTILOS_VISUALES = [
 ]
 ESTILO_VISUAL_ACTUAL = random.choice(ESTILOS_VISUALES)
 
-# ================================================================
-# 💀 CTA FINAL
-# ================================================================
 CTAS_FINALES = [
     "\n\n💀 ¿Te ha pasado algo parecido? Cuéntanos tu historia en comentarios. 👇",
     "\n\n👻 ¿Conoces una leyenda similar? Compártela en los comentarios. 👇",
@@ -91,17 +80,7 @@ CTAS_FINALES = [
 ]
 
 # ================================================================
-# 🎤 VOCES EDGE-TTS (desde el script de shorts)
-# ================================================================
-VOCES_DISPONIBLES = [
-    {"voz": "es-MX-JorgeNeural", "velocidad": "+10%", "tono": "-2Hz"},
-    {"voz": "es-ES-AlvaroNeural", "velocidad": "+10%", "tono": "-3Hz"},
-    {"voz": "es-MX-ManuelNeural", "velocidad": "+10%", "tono": "-1Hz"},
-    {"voz": "es-CL-LorenzoNeural", "velocidad": "+10%", "tono": "-2Hz"},
-]
-
-# ================================================================
-# CARGAR TEMAS
+# FUNCIONES AUXILIARES
 # ================================================================
 def cargar_temas():
     try:
@@ -109,30 +88,21 @@ def cargar_temas():
             temas = json.load(f)
             if isinstance(temas, list) and len(temas) > 0:
                 return temas
-            else:
-                raise ValueError("El archivo no contiene una lista válida")
+            raise ValueError("El archivo no contiene una lista válida")
     except Exception as e:
         print(f"⚠️ Error cargando temas: {e}")
-        print("❌ No se pudo cargar el archivo de temas. Abortando.")
         sys.exit(1)
 
-# ================================================================
-# 🗂️ ESTADO
-# ================================================================
 def cargar_estado():
     try:
         with open(ESTADO_FILE, "r", encoding="utf-8") as f:
             data = json.load(f)
-            if "historia_a" in data or "historia_b" in data:
-                print("🔄 Detectado estado viejo. Migrando a nuevo formato...")
-                publicados = data.get("publicados", [])
-                return {"publicados": publicados, "ultimo_tema": ""}
             if "publicados" not in data:
                 data["publicados"] = []
             if "ultimo_tema" not in data:
                 data["ultimo_tema"] = ""
             return data
-    except Exception:
+    except:
         return {"publicados": [], "ultimo_tema": ""}
 
 def guardar_estado(estado):
@@ -143,36 +113,20 @@ def guardar_estado(estado):
 def obtener_tema_no_repetido(temas, estado):
     publicados = set(estado.get("publicados", []))
     ultimo_tema = estado.get("ultimo_tema", "")
-    
     disponibles = [t for t in temas if t not in publicados and t != ultimo_tema]
-    
     if not disponibles:
         disponibles = [t for t in temas if t != ultimo_tema]
-    
-    if not disponibles:
-        print("🔄 Todos los temas publicados. Reiniciando historial...")
-        estado["publicados"] = []
-        disponibles = [t for t in temas if t != ultimo_tema]
-    
     if not disponibles:
         disponibles = temas
-    
     return random.choice(disponibles)
 
-# ================================================================
-# 🧹 LIMPIAR TEXTO PARA IMAGEN
-# ================================================================
 def limpiar_texto_para_imagen(texto):
     texto = re.sub(r'[\U0001F600-\U0001F64F\U0001F300-\U0001F5FF\U0001F680-\U0001F6FF\U0001F700-\U0001F77F\U0001F780-\U0001F7FF\U0001F800-\U0001F8FF\U0001F900-\U0001F9FF\U0001FA00-\U0001FA6F\U0001FA70-\U0001FAFF\U00002700-\U000027BF\U000024C2-\U0001F251]', '', texto)
     texto = re.sub(r'#\w+', '', texto)
     texto = re.sub(r'\*\*([^*]+)\*\*', r'\1', texto)
     return texto.strip()
 
-# ================================================================
-# 🧹 LIMPIAR TEXTO PARA AUDIO
-# ================================================================
 def limpiar_texto_para_audio(texto):
-    """Elimina caracteres que pueden causar problemas en TTS."""
     texto = re.sub(r'[\U0001F600-\U0001F64F\U0001F300-\U0001F5FF\U0001F680-\U0001F6FF\U0001F700-\U0001F77F\U0001F780-\U0001F7FF\U0001F800-\U0001F8FF\U0001F900-\U0001F9FF\U0001FA00-\U0001FA6F\U0001FA70-\U0001FAFF\U00002700-\U000027BF\U000024C2-\U0001F251]', '', texto)
     texto = re.sub(r'[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]', '', texto)
     texto = texto.replace('"', "'")
@@ -265,7 +219,7 @@ DIRECTRICES_ENTIDAD = {
 }
 
 # ================================================================
-# 🎨 GENERAR PROMPT DE IMAGEN (ESTILO CINE DE TERROR)
+# 🎨 GENERAR PROMPT DE IMAGEN
 # ================================================================
 def generar_prompt_imagen(historia, tema, personaje):
     tipo = detectar_tipo_entidad(tema)
@@ -289,10 +243,10 @@ TEMA: {tema}
 ENTIDAD DEL RELATO: {tipo}
 PERSONAJE HUMANO: {sujeto_humano}
 
-🎬 ESTILO VISUAL OBLIGATORIO (horror cinematográfico de alto impacto):
+🎬 ESTILO VISUAL OBLIGATORIO:
 - Cinematic horror film still, dramatic volumetric lighting, thick atmospheric fog
 - High contrast chiaroscuro: deep black shadows + ONE dominant accent glow (crimson red, electric cyan, amber or toxic green)
-- Subtle neon/electric glow on supernatural elements (glowing eyes, spectral aura, eerie light sources, neon signs if urban)
+- Subtle neon/electric glow on supernatural elements
 - Moonlight beams, god rays, anamorphic lens feel, shallow depth of field
 - Saturated but elegant cinematic color grading, modern horror movie poster style
 
@@ -303,11 +257,7 @@ PERSONAJE HUMANO: {sujeto_humano}
 - HUMANO: {sujeto_humano} — de espaldas o a distancia, ocupando MÁXIMO 20-25% del encuadre
 - EXACTAMENTE UNA figura humana y UNA entidad
 
-🚫 PROHIBIDO:
-- gore, sangre explícita, heridas, mutilaciones
-- caras deformes o monstruosas en primer plano extremo
-- texto, letras, watermarks, logos
-- multitudes, personas duplicadas, clones, gemelos
+🚫 PROHIBIDO: gore, sangre, heridas, mutilaciones, caras deformes o monstruosas en primer plano, texto, watermarks, logos, multitudes, personas duplicadas, clones, gemelos
 
 Devuelve SOLO el prompt en inglés, directo, sin explicaciones.
 """
@@ -351,16 +301,12 @@ def filtrar_prompt_para_agnes(prompt):
         "attack", "assault", "stabbing", "strangle", "choke", "cut", "slash",
         "corpse", "dead body", "murdered", "vicious"
     ]
-    
     prompt_limpio = prompt
     for palabra in palabras_prohibidas:
         prompt_limpio = re.sub(rf'\b{palabra}\b', '', prompt_limpio, flags=re.IGNORECASE)
-    
     prompt_limpio = re.sub(r'\s+', ' ', prompt_limpio).strip()
-    
     if len(prompt_limpio.split()) < 10:
         prompt_limpio = "Cinematic landscape photograph, atmospheric moonlight, mysterious urban scene at night, no violence, no horror, cinematic mood"
-    
     print(f"🛡️ Prompt filtrado para Agnes (caracteres: {len(prompt_limpio)})")
     return prompt_limpio
 
@@ -376,7 +322,7 @@ Tu tarea es DOCUMENTAR un testimonio COMPLETO y AUTOCONCLUSIVO sobre:
 🚨 REGLAS ESTRICTAS:
 - Ambientación: Mención EXACTA del lugar en México.
 - Narración en PRIMERA PERSONA, como si la persona te lo estuviera contando a ti.
-- El narrador debe tener un PERFIL ÚNICO Y DIVERSO en cada historia. Varía el género, la edad (entre 20 y 70 años) y el oficio (ejemplos: profesor, taxista, enfermera, albañil, ama de casa, comerciante, policía, etc.). NO repitas el mismo perfil en historias consecutivas.
+- El narrador debe tener un PERFIL ÚNICO Y DIVERSO en cada historia. Varía el género, la edad (entre 20 y 70 años) y el oficio. NO repitas el mismo perfil en historias consecutivas.
 - Extensión: ENTRE 300 y 340 palabras.
 - ESTRUCTURA OBLIGATORIA en PÁRRAFOS (cada párrafo separado por una línea en blanco):
   1. GANCHO inicial impactante (1-2 frases)
@@ -384,7 +330,6 @@ Tu tarea es DOCUMENTAR un testimonio COMPLETO y AUTOCONCLUSIVO sobre:
   3. DESARROLLO: los hechos sobrenaturales paso a paso, con detalles sensoriales (2-3 párrafos)
   4. CLÍMAX: el momento más intenso (1 párrafo)
   5. DESENLACE: cómo terminó todo y qué le quedó al narrador (1 párrafo)
-- TERMINA la última oración completamente.
 - Tono NATURAL Y COLOQUIAL, como alguien contando su experiencia real.
 - Detalles específicos: nombres de lugares reales, años concretos, oficios reales.
 
@@ -407,32 +352,26 @@ Formato EXACTO de salida:
         "temperature": 0.75,
         "max_tokens": 1200,
     }
-
     for intento in range(3):
         try:
             print(f"📝 Intento {intento+1}/3 generando historia completa...")
             r = requests.post(url, headers=headers, json=payload, timeout=120)
             r.raise_for_status()
             resultado = r.json()["choices"][0]["message"]["content"].strip()
-            
             if "[Error" in resultado or len(resultado) < 200:
                 raise ValueError("Respuesta muy corta o con error")
-            
             lineas = resultado.split('\n')
             texto_narrativo = '\n'.join(linea for linea in lineas if linea.strip() and not linea.strip().startswith('🌙'))
             palabras = len(texto_narrativo.split())
             print(f"   📊 Palabras generadas: {palabras}")
-            
             if palabras < 250:
                 print(f"   ⚠️ Muy corto ({palabras} palabras). Reintentando...")
                 raise ValueError("Historia demasiado corta")
-            
             return resultado
         except Exception as e:
             print(f"❌ Intento {intento+1} falló: {e}")
             if intento < 2:
                 time.sleep(5)
-    
     print("❌ No se pudo generar la historia después de 3 intentos.")
     return None
 
@@ -451,7 +390,6 @@ def agregar_cta_final(texto):
     ]
     for patron in patrones:
         texto = re.sub(patron, "", texto, flags=re.IGNORECASE | re.DOTALL)
-    
     texto = re.sub(r'\n{3,}', '\n\n', texto)
     cta = random.choice(CTAS_FINALES)
     hashtags = "\n\n#LeyendasMexicanas #Terror #Misterio #Paranormal #Mexico"
@@ -505,7 +443,6 @@ def generar_imagen_agnes(prompt, width=1080, height=1350, intentos=5, espera_seg
     prompt_limpio = prompt[:800]
     url = "https://apihub.agnes-ai.com/v1/images/generations"
     headers = {"Authorization": f"Bearer {AGNES_API_KEY}", "Content-Type": "application/json"}
-    
     negative = (
         "close-up face, portrait, headshot, person filling frame, "
         "deformed face, disfigured, mutated, bad anatomy, extra limbs, "
@@ -520,7 +457,6 @@ def generar_imagen_agnes(prompt, width=1080, height=1350, intentos=5, espera_seg
         "duplicate people, cloned faces, multiple subjects, "
         "low quality, blurry, oversharpened, over-saturated"
     )
-    
     payload = {
         "model": "agnes-image-2.1-flash",
         "prompt": prompt_limpio,
@@ -529,7 +465,6 @@ def generar_imagen_agnes(prompt, width=1080, height=1350, intentos=5, espera_seg
         "height": height,
         "num_images": 1,
     }
-
     for intento in range(1, intentos + 1):
         print(f"🎨 Intento {intento}/{intentos} generando imagen vertical...")
         try:
@@ -547,115 +482,72 @@ def generar_imagen_agnes(prompt, width=1080, height=1350, intentos=5, espera_seg
                     break
         except Exception as e:
             print(f"❌ Error de conexión: {e}")
-
         if intento < intentos:
             print(f"⏳ Esperando {espera_segundos}s antes de reintentar...")
             time.sleep(espera_segundos)
-
     print(f"❌ No se pudo generar la imagen después de {intentos} intentos.")
     return None
 
 # ================================================================
-# 🎤 GENERAR AUDIO CON EDGE-TTS (con fallback a gTTS)
+# 🎤 GENERAR AUDIO CON GTTS (SIMPLIFICADO)
 # ================================================================
-def generar_audio_edge_tts(texto, index, intentos_por_voz=2):
-    """
-    Genera un archivo de audio usando edge_tts.
-    Prueba las voces en orden hasta que una funcione.
-    Si todas fallan, usa gTTS como fallback final.
-    """
+def generar_audio_gtts(texto, index):
     texto_limpio = limpiar_texto_para_audio(texto)
     if len(texto_limpio) < 30:
         texto_limpio = "Esa noche en la carretera, el silencio era tan denso que podía cortarse con un cuchillo."
-
     filename = f"narracion_{index}.mp3"
-
-    # Probar voces edge-tts
-    for voz_config in VOCES_DISPONIBLES:
-        voz = voz_config["voz"]
-        rate = voz_config["velocidad"]
-        pitch = voz_config["tono"]
-
-        for intento in range(intentos_por_voz):
-            async def _generar():
-                communicate = edge_tts.Communicate(texto_limpio, voz, rate=rate, pitch=pitch)
-                await communicate.save(filename)
-            try:
-                asyncio.run(_generar())
-                if os.path.exists(filename) and os.path.getsize(filename) > 0:
-                    print(f"🔊 Audio generado con {voz} (intento {intento+1})")
-                    return filename
-            except Exception as e:
-                print(f"❌ Falló con {voz}: {e}")
-                if intento < intentos_por_voz - 1:
-                    time.sleep(2)
-                if os.path.exists(filename):
-                    try:
-                        os.remove(filename)
-                    except:
-                        pass
-        # Si falló esta voz, pasar a la siguiente
-
-    # Si todas las edge-tts fallaron, usar gTTS como fallback
-    print("⚠️ Todas las voces edge-tts fallaron. Usando gTTS como respaldo...")
     try:
-        from gtts import gTTS
         tts = gTTS(text=texto_limpio, lang='es', slow=False)
         tts.save(filename)
         if os.path.exists(filename) and os.path.getsize(filename) > 0:
-            print(f"🔊 Audio generado con gTTS (fallback)")
+            print(f"🔊 Audio generado con gTTS (simplificado)")
             return filename
     except Exception as e:
-        print(f"❌ gTTS también falló: {e}")
-        return None
+        print(f"❌ gTTS falló: {e}")
+    return None
 
 # ================================================================
-# 🎬 CREAR VIDEO CON NARRACIÓN Y SUBIR A CLOUDINARY
+# 🎬 CREAR VIDEO Y SUBIR A CLOUDINARY
 # ================================================================
 def crear_y_subir_video(texto, imagen_url):
-    """
-    Crea un video con imagen, texto superpuesto y NARRACIÓN DE VOZ (edge-tts primero, gTTS fallback),
-    y lo sube a Cloudinary.
-    """
     if not CLOUDINARY_DISPONIBLE:
         print("❌ Cloudinary no configurado. No se puede subir el video.")
         return None
 
-    print("🎬 Creando video Reel con narración de voz (edge-tts)...")
+    print("🎬 Creando video Reel con narración (gTTS)...")
     
     # 1. Descargar imagen
     img_response = requests.get(imagen_url)
     if img_response.status_code != 200:
         print("❌ Error descargando imagen para el video")
         return None
-    
     with open("temp_background.jpg", "wb") as f:
         f.write(img_response.content)
     
-    # 2. Generar audio con edge-tts (con fallback a gTTS)
-    print("🔊 Generando narración con voz...")
-    audio_path = generar_audio_edge_tts(texto, "reel")
+    # 2. Generar audio
+    print("🔊 Generando narración con gTTS...")
+    audio_path = generar_audio_gtts(texto, "reel")
     if not audio_path:
         print("❌ No se pudo generar audio. Abortando video.")
         return None
     
     # 3. Crear clip de imagen (resize a 1080x1920)
     try:
-        clip = mp.ImageClip("temp_background.jpg").resize(newsize=(1080, 1920))
+        clip = ImageClip("temp_background.jpg").resized((1080, 1920))
     except Exception as e:
         print(f"❌ Error procesando imagen: {e}")
         return None
     
     # 4. Cargar audio
     try:
-        audio_clip = mp.AudioFileClip(audio_path)
+        audio_clip = AudioFileClip(audio_path)
         duracion = audio_clip.duration
         print(f"🎵 Duración del audio: {duracion:.1f} segundos")
     except Exception as e:
         print(f"❌ Error cargando audio: {e}")
         return None
     
-    # 5. Añadir texto superpuesto (para que se vea el resumen)
+    # 5. Añadir texto superpuesto
     lineas = []
     palabras = texto.split()
     linea_actual = ""
@@ -669,34 +561,34 @@ def crear_y_subir_video(texto, imagen_url):
         lineas.append(linea_actual.strip())
     
     try:
-        txt_clip = mp.TextClip(
-            "\n".join(lineas),
-            fontsize=40,
+        txt_clip = TextClip(
+            text="\n".join(lineas),
+            font_size=40,
             color='white',
             stroke_color='black',
             stroke_width=2,
             font='Arial',
             method='caption',
             size=(1000, 1800),
-            align='center'
+            text_align='center',
         )
-        txt_clip = txt_clip.set_duration(duracion).set_position('center')
+        txt_clip = txt_clip.with_duration(duracion).with_position('center')
     except Exception as e:
         print(f"⚠️ Error creando texto superpuesto: {e}")
         txt_clip = None
     
     # 6. Combinar video + audio (+ texto)
-    clip = clip.set_duration(duracion)
+    clip = clip.with_duration(duracion)
     if txt_clip:
-        final = mp.CompositeVideoClip([clip, txt_clip])
+        final = CompositeVideoClip([clip, txt_clip])
     else:
         final = clip
-    final = final.set_audio(audio_clip)
+    final = final.with_audio(audio_clip)
     
     # 7. Exportar
     output_path = "reel.mp4"
     try:
-        final.write_videofile(output_path, fps=24, codec='libx264', verbose=False, logger=None)
+        final.write_videofile(output_path, fps=24, codec='libx264', logger=None, verbose=False)
         print(f"✅ Video con narración guardado en {output_path}")
     except Exception as e:
         print(f"❌ Error exportando video: {e}")
@@ -718,53 +610,42 @@ def crear_y_subir_video(texto, imagen_url):
         print(f"❌ Error subiendo a Cloudinary: {e}")
         return None
     finally:
-        # Limpiar archivos temporales
-        try:
-            os.remove(output_path)
-            os.remove("temp_background.jpg")
-            if audio_path and os.path.exists(audio_path):
-                os.remove(audio_path)
-        except:
-            pass
+        for f in [output_path, "temp_background.jpg", audio_path]:
+            try:
+                if os.path.exists(f):
+                    os.remove(f)
+            except:
+                pass
 
 # ================================================================
 # MAIN
 # ================================================================
 def main():
-    print("👻 Iniciando Bot de Terror (con narración edge-tts → Cloudinary → Make)")
+    print("👻 Iniciando Bot de Terror (gTTS simplificado → Cloudinary → Make)")
     print(f"📅 {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
 
-    # Validar variables de entorno
     if not all([DEEPSEEK_API_KEY, MAKE_WEBHOOK_URL_TERROR, AGNES_API_KEY]):
         print("❌ Faltan variables de entorno (DEEPSEEK, MAKE, AGNES).")
         sys.exit(1)
-
-    if not CLOUDINARY_DISPONIBLE:
-        print("⚠️ Cloudinary no configurado. No se podrá subir el video del Reel.")
-        print("   El Reel se omitirá.")
 
     temas = cargar_temas()
     print(f"📚 {len(temas)} temas cargados")
 
     estado = cargar_estado()
-
     tema = obtener_tema_no_repetido(temas, estado)
     print(f"📖 Tema seleccionado: {tema}")
 
     print("📝 Generando historia completa con DeepSeek...")
     historia_base = generar_historia_completa(tema)
-
     if not historia_base:
         print("❌ Falló la generación de la historia. Abortando sin guardar estado.")
         sys.exit(1)
 
     print(f"✅ Historia completa generada ({len(historia_base.split())} palabras aprox)")
 
-    # Detectar personaje
     print("🧑 Detectando personaje del relato...")
     personaje = detectar_personaje(historia_base)
 
-    # Generar prompt de imagen para post (4:5)
     print("🎨 Generando prompt de imagen para post...")
     prompt_imagen_post = generar_prompt_imagen(historia_base, tema, personaje)
     prompt_imagen_post_filtrado = filtrar_prompt_para_agnes(prompt_imagen_post)
@@ -772,7 +653,6 @@ def main():
     if image_url is None:
         image_url = "https://via.placeholder.com/1080x1350/1a1a1a/ff0000?text=Terror"
 
-    # Generar imagen para Reel (9:16)
     print("🎨 Generando prompt de imagen para Reel (9:16)...")
     prompt_imagen_reel = prompt_imagen_post.replace("4:5", "9:16").replace("vertical 4:5", "vertical 9:16")
     prompt_imagen_reel_filtrado = filtrar_prompt_para_agnes(prompt_imagen_reel)
@@ -780,16 +660,13 @@ def main():
     if image_reel_url is None:
         image_reel_url = "https://via.placeholder.com/1080x1920/1a1a1a/ff0000?text=Reel"
 
-    # Agregar CTA, hashtags y leyenda IA
     texto_final = agregar_cta_final(historia_base)
     print("✅ CTA, hashtags y leyenda de IA agregados")
 
-    # Generar resumen para Reel
     print("📝 Generando resumen para Reel (100 palabras)...")
     resumen_reel = generar_resumen_reel(historia_base)
     print(f"✅ Resumen: {len(resumen_reel.split())} palabras")
 
-    # ---------- GENERAR VIDEO CON NARRACIÓN Y SUBIR A CLOUDINARY ----------
     reel_video_url = None
     if CLOUDINARY_DISPONIBLE:
         reel_video_url = crear_y_subir_video(resumen_reel, image_reel_url)
@@ -798,7 +675,6 @@ def main():
     else:
         print("⏭️ Omisión de video (Cloudinary no configurado)")
 
-    # ---------- Enviar TODO a Make ----------
     payload = {
         "post_message": texto_final,
         "post_image": image_url,
