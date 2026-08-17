@@ -8,6 +8,7 @@ import time
 import requests
 import asyncio
 import edge_tts
+import numpy as np
 from moviepy import ImageClip, TextClip, CompositeVideoClip, AudioFileClip
 from cloudinary.uploader import upload
 import cloudinary
@@ -196,7 +197,7 @@ CTAS_FINALES = [
 ]
 
 # ================================================================
-# 🧑 DETECTAR PERSONAJE Y ÉPOCA (NUEVO: Extrae el año)
+# 🧑 DETECTAR PERSONAJE Y ÉPOCA
 # ================================================================
 def detectar_personaje_y_epoca(texto_historia):
     prompt = f"""Analiza el siguiente relato en primera persona y extrae las características físicas del protagonista y la época/año en que ocurre.
@@ -294,7 +295,6 @@ def generar_prompt_imagen(historia, tema, personaje):
     edad = personaje.get("edad_aprox", 35)
     anio = personaje.get("anio", 2015)
     
-    # 🆕 Construir modificador de época dinámico
     if anio >= 2015:
         epoca_mod = "present day contemporary era (2020s), modern vehicles, modern architecture, smartphones, LED lighting"
     elif anio >= 2000:
@@ -356,7 +356,7 @@ Devuelve SOLO el prompt en inglés, directo, sin explicaciones.
         return f"Vertical 4:5 cinematic film still, dark atmospheric scene with volumetric fog, wide shot, no text"
 
 # ================================================================
-# 🛡️ FILTRAR PROMPT PARA AGNES (Evitar bloqueos por palabras "horror")
+# 🛡️ FILTRAR PROMPT PARA AGNES
 # ================================================================
 def filtrar_prompt_para_agnes(prompt):
     palabras_prohibidas = [
@@ -519,16 +519,13 @@ Devuelve SOLO el resumen, sin títulos, sin hashtags, sin llamados a la acción.
         return " ".join(palabras[:100]) + "..."
 
 # ================================================================
-# 🖼️ GENERAR IMAGEN CON AGNES (Negative Prompt Corregido)
+# 🖼️ GENERAR IMAGEN CON AGNES
 # ================================================================
 def generar_imagen_agnes(prompt, width=1080, height=1350, intentos=5, espera_segundos=15):
     prompt_limpio = filtrar_prompt_para_agnes(prompt[:800])
     url = "https://apihub.agnes-ai.com/v1/images/generations"
     headers = {"Authorization": f"Bearer {AGNES_API_KEY}", "Content-Type": "application/json"}
     
-    # 🆕 Negative prompt corregido: Se eliminaron prohibiciones de épocas pasadas (1980s, vintage, old car)
-    # para permitir que la IA genere la época histórica correcta si la historia lo exige.
-    # Se agregaron bloqueos agresivos contra clones y dobles caras.
     negative = (
         "close-up face, portrait, headshot, person filling frame, "
         "deformed face, disfigured, mutated, bad anatomy, extra limbs, "
@@ -664,14 +661,35 @@ def generar_audio_edge_tts(texto, index):
     return None
 
 # ================================================================
-# 🎬 CREAR VIDEO Y SUBIR A CLOUDINARY
+# 🎥 ZOOM LENTO (Ken Burns Effect) - desde Qwen
+# ================================================================
+def aplicar_zoom_lento(clip, zoom_final=1.10):
+    """Aplica un zoom in suave del 10% durante la duración del clip."""
+    dur = clip.duration
+    if dur <= 0:
+        return clip
+    def efecto(get_frame, t):
+        frame = get_frame(t)
+        factor = 1.0 + (zoom_final - 1.0) * (t / dur)
+        h, w = frame.shape[:2]
+        new_h, new_w = int(h * factor), int(w * factor)
+        img = Image.fromarray(frame)
+        img = img.resize((new_w, new_h), Image.LANCZOS)
+        left = (new_w - w) // 2
+        top = (new_h - h) // 2
+        img = img.crop((left, top, left + w, top + h))
+        return np.array(img)
+    return clip.fl(efecto)
+
+# ================================================================
+# 🎬 CREAR VIDEO Y SUBIR A CLOUDINARY (CON ZOOM LENTO)
 # ================================================================
 def crear_y_subir_video(texto, imagen_url):
     if not CLOUDINARY_DISPONIBLE:
         print("❌ Cloudinary no configurado.")
         return None
 
-    print("🎬 Creando video Reel con narración...")
+    print("🎬 Creando video Reel con narración y zoom lento...")
     
     img_path = None
     if imagen_url and imagen_url.startswith("http"):
@@ -716,6 +734,10 @@ def crear_y_subir_video(texto, imagen_url):
         print(f"❌ Error procesando imagen: {e}")
         return None
     
+    # Aplicar zoom lento
+    print("🎥 Aplicando zoom lento (Ken Burns)...")
+    clip = aplicar_zoom_lento(clip, zoom_final=1.10)
+    
     try:
         audio_clip = AudioFileClip(audio_path)
         duracion = audio_clip.duration
@@ -724,6 +746,7 @@ def crear_y_subir_video(texto, imagen_url):
         print(f"❌ Error cargando audio: {e}")
         return None
     
+    # Texto superpuesto (opcional, con fallback)
     lineas = []
     palabras = texto.split()
     linea_actual = ""
@@ -799,7 +822,7 @@ def crear_y_subir_video(texto, imagen_url):
 # ================================================================
 def main():
     print(f"🎤 Voz inicial: {CONFIG_VOZ_ACTUAL['voz']} ({CONFIG_VOZ_ACTUAL['velocidad']})")
-    print("👻 Iniciando Bot de Terror (edge-tts + Cloudinary + Make)")
+    print("👻 Iniciando Bot de Terror (edge-tts + Zoom Lento + Cloudinary + Make)")
     print(f"📅 {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
 
     if not all([DEEPSEEK_API_KEY, MAKE_WEBHOOK_URL_TERROR, AGNES_API_KEY]):
@@ -823,6 +846,13 @@ def main():
 
     print("🧑 Detectando personaje y época...")
     personaje = detectar_personaje_y_epoca(historia_base)
+
+    # Extraer título de la historia (línea que empieza con "🌙")
+    titulo_historia = "Relato de terror"
+    for linea in historia_base.split('\n'):
+        if linea.strip().startswith('🌙'):
+            titulo_historia = linea.strip().replace('🌙', '').strip()
+            break
 
     # --- Imagen para post (4:5) ---
     print("🎨 Generando prompt para post...")
@@ -860,13 +890,17 @@ def main():
     else:
         print("⏭️ Cloudinary no configurado, omitiendo Reel.")
 
+    # --- Preparar descripción del Reel (solo título + hashtags + disclaimer IA) ---
+    hashtags_texto = "#LeyendasMexicanas #Terror #Misterio #Paranormal #Mexico"
+    descripcion_reel = f"🌙 {titulo_historia}\n\n{hashtags_texto}\n\n_Imágenes y voz generados con IA._"
+
     # --- Enviar a Make ---
     payload = {
         "post_message": texto_final,
         "post_image": image_url,
         "comment_text": "😱 El relato completo ya está en el post principal. ¡No te lo pierdas!",
         "reel_video_url": reel_video_url,
-        "reel_text": resumen_reel,
+        "reel_text": descripcion_reel,  # ← AHORA: título + hashtags + disclaimer IA
         "timestamp": datetime.now().isoformat(),
     }
 
