@@ -90,10 +90,6 @@ CTAS_FINALES = [
 # 🖼️ GENERAR PLACEHOLDER LOCAL Y SUBIR A CLOUDINARY
 # ================================================================
 def generar_y_subir_placeholder(texto="Imagen no disponible", size=(1080, 1350)):
-    """
-    Genera un placeholder local y lo sube a Cloudinary para obtener una URL pública.
-    Si Cloudinary no está disponible, devuelve None.
-    """
     try:
         img = Image.new("RGB", size, (20, 20, 20))
         draw = ImageDraw.Draw(img)
@@ -119,7 +115,7 @@ def generar_y_subir_placeholder(texto="Imagen no disponible", size=(1080, 1350))
             )
             url = result.get('secure_url')
             print(f"✅ Placeholder subido: {url}")
-            os.remove(path)  # limpiar local
+            os.remove(path)
             return url
         else:
             print("⚠️ Cloudinary no disponible, placeholder local no se subirá")
@@ -176,6 +172,7 @@ def limpiar_texto_para_imagen(texto):
     return texto.strip()
 
 def limpiar_texto_para_audio(texto):
+    # Solo eliminamos emojis y caracteres no imprimibles, pero preservamos acentos y eñes
     texto = re.sub(r'[\U0001F600-\U0001F64F\U0001F300-\U0001F5FF\U0001F680-\U0001F6FF\U0001F700-\U0001F77F\U0001F780-\U0001F7FF\U0001F800-\U0001F8FF\U0001F900-\U0001F9FF\U0001FA00-\U0001FA6F\U0001FA70-\U0001FAFF\U00002700-\U000027BF\U000024C2-\U0001F251]', '', texto)
     texto = re.sub(r'[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]', '', texto)
     texto = texto.replace('"', "'")
@@ -279,7 +276,7 @@ DIRECTRICES_ENTIDAD = {
 }
 
 # ================================================================
-# 🎨 GENERAR PROMPT DE IMAGEN (NEUTRALIZADO)
+# 🎨 GENERAR PROMPT DE IMAGEN
 # ================================================================
 def generar_prompt_imagen(historia, tema, personaje):
     tipo = detectar_tipo_entidad(tema)
@@ -439,7 +436,7 @@ Formato EXACTO de salida:
     return None
 
 # ================================================================
-# 💀 AGREGAR CTA + HASHTAGS + LEYENDA IA
+# 💀 AGREGAR CTA + HASHTAGS + LEYENDA IA (para el post)
 # ================================================================
 def agregar_cta_final(texto):
     texto = re.sub(r'#\w+', '', texto)
@@ -460,7 +457,7 @@ def agregar_cta_final(texto):
     return texto.strip() + cta + hashtags + leyenda_ia
 
 # ================================================================
-# 📝 GENERAR RESUMEN PARA REEL
+# 📝 GENERAR RESUMEN PARA REEL (incluye leyenda IA en el texto superpuesto, NO en audio)
 # ================================================================
 def generar_resumen_reel(historia_completa):
     prompt = f"""Resume el siguiente relato de terror en un texto CORTO y ATMOSFÉRICO de EXACTAMENTE 100 palabras, ideal para un Reel de Facebook.
@@ -558,24 +555,27 @@ def generar_imagen_agnes(prompt, width=1080, height=1350, intentos=5, espera_seg
     if placeholder_url:
         return placeholder_url
     else:
-        # Último recurso: usar una URL de placeholder pública (aunque con SSL problems, pero mejor que nada)
         fallback_url = f"https://via.placeholder.com/{width}x{height}/1a1a1a/ff0000?text={texto_placeholder}"
         print(f"⚠️ Usando URL fallback: {fallback_url}")
         return fallback_url
 
 # ================================================================
-# 🎤 GENERAR AUDIO CON GTTS
+# 🎤 GENERAR AUDIO CON GTTS (velocidad normal, español)
 # ================================================================
-def generar_audio_gtts(texto, index):
+def generar_audio_gtts(texto, index, slow=False):
+    """
+    Genera audio con gTTS.
+    slow=False: velocidad normal (recomendado para español).
+    """
     texto_limpio = limpiar_texto_para_audio(texto)
     if len(texto_limpio) < 30:
         texto_limpio = "Esa noche en la carretera, el silencio era tan denso que podía cortarse con un cuchillo."
     filename = f"narracion_{index}.mp3"
     try:
-        tts = gTTS(text=texto_limpio, lang='es', slow=False)
+        tts = gTTS(text=texto_limpio, lang='es', slow=slow)
         tts.save(filename)
         if os.path.exists(filename) and os.path.getsize(filename) > 0:
-            print(f"🔊 Audio generado con gTTS")
+            print(f"🔊 Audio generado con gTTS (slow={slow})")
             return filename
     except Exception as e:
         print(f"❌ gTTS falló: {e}")
@@ -584,14 +584,28 @@ def generar_audio_gtts(texto, index):
 # ================================================================
 # 🎬 CREAR VIDEO Y SUBIR A CLOUDINARY
 # ================================================================
-def crear_y_subir_video(texto, imagen_url):
+def crear_y_subir_video(texto_resumen, imagen_url):
+    """
+    Crea un video Reel con:
+    - Imagen de fondo (descargada o placeholder)
+    - Texto superpuesto (resumen + leyenda IA)
+    - Audio con la narración del resumen (sin la leyenda IA)
+    """
     if not CLOUDINARY_DISPONIBLE:
         print("❌ Cloudinary no configurado.")
         return None
 
     print("🎬 Creando video Reel con narración...")
-    
-    # 1. Descargar imagen (puede ser URL o local)
+
+    # --- 1. Preparar texto para audio (sin leyenda IA) ---
+    texto_audio = limpiar_texto_para_audio(texto_resumen)
+    if not texto_audio:
+        texto_audio = "Historia de terror."
+
+    # --- 2. Preparar texto para superponer (con leyenda IA) ---
+    texto_superpuesto = texto_resumen + "\n\n_Imágenes generadas con IA_"
+
+    # --- 3. Descargar imagen ---
     img_path = None
     if imagen_url and imagen_url.startswith("http"):
         img_data = descargar_imagen_con_retry(imagen_url)
@@ -603,43 +617,43 @@ def crear_y_subir_video(texto, imagen_url):
         else:
             print("⚠️ No se pudo descargar la imagen, usando placeholder")
     else:
-        # Si es un archivo local (p.ej., placeholder generado)
+        # Si es archivo local, usar directamente o generar placeholder
         if imagen_url and os.path.exists(imagen_url):
             img_path = imagen_url
         else:
-            img_path = generar_y_subir_placeholder("Reel", (1080, 1920))
-            if not img_path:
-                print("❌ No se pudo generar placeholder. Abortando.")
-                return None
-            # img_path es URL, no local, entonces descargamos
-            img_data = descargar_imagen_con_retry(img_path)
-            if img_data:
-                img_path = "temp_background.jpg"
-                with open(img_path, "wb") as f:
-                    f.write(img_data)
+            placeholder_url = generar_y_subir_placeholder("Reel", (1080, 1920))
+            if placeholder_url:
+                img_data = descargar_imagen_con_retry(placeholder_url)
+                if img_data:
+                    img_path = "temp_background.jpg"
+                    with open(img_path, "wb") as f:
+                        f.write(img_data)
+                else:
+                    print("❌ No se pudo descargar placeholder")
+                    return None
             else:
-                print("❌ No se pudo descargar placeholder")
+                print("❌ No se pudo generar placeholder")
                 return None
-    
+
     if not img_path or not os.path.exists(img_path):
         print("❌ No existe archivo de imagen")
         return None
 
-    # 2. Generar audio
+    # --- 4. Generar audio (con texto sin leyenda IA) ---
     print("🔊 Generando narración...")
-    audio_path = generar_audio_gtts(texto, "reel")
+    audio_path = generar_audio_gtts(texto_audio, "reel", slow=False)
     if not audio_path:
         print("❌ No se pudo generar audio.")
         return None
-    
-    # 3. Crear clip de imagen
+
+    # --- 5. Crear clip de imagen ---
     try:
         clip = ImageClip(img_path).resized((1080, 1920))
     except Exception as e:
         print(f"❌ Error procesando imagen: {e}")
         return None
-    
-    # 4. Cargar audio
+
+    # --- 6. Cargar audio ---
     try:
         audio_clip = AudioFileClip(audio_path)
         duracion = audio_clip.duration
@@ -647,10 +661,11 @@ def crear_y_subir_video(texto, imagen_url):
     except Exception as e:
         print(f"❌ Error cargando audio: {e}")
         return None
-    
-    # 5. Añadir texto superpuesto (con DejaVu-Sans)
+
+    # --- 7. Añadir texto superpuesto (con leyenda IA) ---
+    # Dividir en líneas para que quepa en pantalla
     lineas = []
-    palabras = texto.split()
+    palabras = texto_superpuesto.split()
     linea_actual = ""
     for palabra in palabras:
         if len(linea_actual) + len(palabra) + 1 <= 35:
@@ -660,15 +675,24 @@ def crear_y_subir_video(texto, imagen_url):
             linea_actual = palabra + " "
     if linea_actual:
         lineas.append(linea_actual.strip())
-    
+
     try:
+        # Intentar con Arial, si falla usar None
+        try:
+            # En Ubuntu suele estar en /usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf
+            font_path = "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf"
+            if not os.path.exists(font_path):
+                font_path = None
+        except:
+            font_path = None
+
         txt_clip = TextClip(
             text="\n".join(lineas),
             font_size=40,
             color='white',
             stroke_color='black',
             stroke_width=2,
-            font='DejaVu-Sans',
+            font=font_path,  # None usa la fuente predeterminada de Pillow
             method='caption',
             size=(1000, 1800),
             text_align='center',
@@ -677,16 +701,16 @@ def crear_y_subir_video(texto, imagen_url):
     except Exception as e:
         print(f"⚠️ Error creando texto, usando sin texto: {e}")
         txt_clip = None
-    
-    # 6. Combinar
+
+    # --- 8. Combinar video ---
     clip = clip.with_duration(duracion)
     if txt_clip:
         final = CompositeVideoClip([clip, txt_clip])
     else:
         final = clip
     final = final.with_audio(audio_clip)
-    
-    # 7. Exportar (sin verbose)
+
+    # --- 9. Exportar (sin verbose) ---
     output_path = "reel.mp4"
     try:
         final.write_videofile(output_path, fps=24, codec='libx264', logger=None)
@@ -694,8 +718,8 @@ def crear_y_subir_video(texto, imagen_url):
     except Exception as e:
         print(f"❌ Error exportando: {e}")
         return None
-    
-    # 8. Subir a Cloudinary
+
+    # --- 10. Subir a Cloudinary ---
     print("📤 Subiendo a Cloudinary...")
     try:
         result = upload(
