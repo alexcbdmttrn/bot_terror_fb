@@ -10,6 +10,8 @@ from moviepy import ImageClip, TextClip, CompositeVideoClip, AudioFileClip
 from cloudinary.uploader import upload
 import cloudinary
 from gtts import gTTS
+from PIL import Image, ImageDraw, ImageFont
+import io
 
 # ================================================================
 # CONFIGURACIÓN
@@ -80,6 +82,31 @@ CTAS_FINALES = [
 ]
 
 # ================================================================
+# 🖼️ GENERAR PLACEHOLDER LOCAL
+# ================================================================
+def generar_placeholder_local(texto="Terror", size=(1080, 1920)):
+    """
+    Genera una imagen local con PIL para usar como placeholder.
+    """
+    try:
+        img = Image.new("RGB", size, (20, 20, 20))
+        draw = ImageDraw.Draw(img)
+        try:
+            font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 120)
+        except:
+            font = ImageFont.load_default()
+        bbox = draw.textbbox((0, 0), texto, font=font)
+        x = (size[0] - (bbox[2]-bbox[0])) // 2
+        y = (size[1] - (bbox[3]-bbox[1])) // 2
+        draw.text((x, y), texto, fill="red", font=font)
+        path = f"placeholder_{random.randint(1000, 9999)}.jpg"
+        img.save(path)
+        return path
+    except Exception as e:
+        print(f"⚠️ Error generando placeholder: {e}")
+        return None
+
+# ================================================================
 # FUNCIONES AUXILIARES
 # ================================================================
 def cargar_temas():
@@ -133,6 +160,18 @@ def limpiar_texto_para_audio(texto):
     texto = texto.replace('\n', ' ')
     texto = re.sub(r'\s+', ' ', texto)
     return texto.strip()
+
+def descargar_imagen_con_retry(url, intentos=3, timeout=30):
+    """Descarga una imagen con reintentos y manejo de SSL."""
+    for i in range(intentos):
+        try:
+            r = requests.get(url, timeout=timeout, verify=False)
+            if r.status_code == 200:
+                return r.content
+        except Exception as e:
+            print(f"   ⚠️ Error descargando imagen (intento {i+1}): {e}")
+            time.sleep(2)
+    return None
 
 # ================================================================
 # 🧑 DETECTAR PERSONAJE
@@ -219,7 +258,7 @@ DIRECTRICES_ENTIDAD = {
 }
 
 # ================================================================
-# 🎨 GENERAR PROMPT DE IMAGEN
+# 🎨 GENERAR PROMPT DE IMAGEN (NEUTRALIZADO PARA AGNES)
 # ================================================================
 def generar_prompt_imagen(historia, tema, personaje):
     tipo = detectar_tipo_entidad(tema)
@@ -232,7 +271,7 @@ def generar_prompt_imagen(historia, tema, personaje):
     else:
         sujeto_humano = f"a {edad}-year-old Mexican man"
     
-    prompt = f"""Eres un DIRECTOR DE FOTOGRAFÍA DE CINE DE TERROR de nivel mundial, experto en concept art cinematográfico atmosférico.
+    prompt = f"""Eres un DIRECTOR DE FOTOGRAFÍA DE CINE de nivel mundial.
 Crea un PROMPT DE IMAGEN EN INGLÉS para una imagen VERTICAL (4:5) que sea la escena MÁS REPRESENTATIVA de esta historia.
 
 HISTORIA:
@@ -240,24 +279,21 @@ HISTORIA:
 {limpiar_texto_para_imagen(historia)[:400]}
 \"\"\"
 TEMA: {tema}
-ENTIDAD DEL RELATO: {tipo}
 PERSONAJE HUMANO: {sujeto_humano}
 
-🎬 ESTILO VISUAL OBLIGATORIO:
-- Cinematic horror film still, dramatic volumetric lighting, thick atmospheric fog
+🎬 ESTILO VISUAL:
+- Cinematic film still, dramatic volumetric lighting, atmospheric fog
 - High contrast chiaroscuro: deep black shadows + ONE dominant accent glow (crimson red, electric cyan, amber or toxic green)
-- Subtle neon/electric glow on supernatural elements
 - Moonlight beams, god rays, anamorphic lens feel, shallow depth of field
-- Saturated but elegant cinematic color grading, modern horror movie poster style
+- Saturated but elegant cinematic color grading
 
-📐 COMPOSICIÓN OBLIGATORIA:
-- PLANO: wide o medium-wide shot, vertical 4:5, composición de póster cinematográfico
-- EL ENTORNO ES EL PROTAGONISTA: arquitectura colonial, callejones con faroles, bosques con niebla, cementerios, interiores con velas, carreteras solitarias, metro, drenajes
-- ENTIDAD VISUAL DEL RELATO: {entidad} — SIEMPRE a distancia o entre sombras, integrada en la atmósfera, NUNCA en primer plano extremo
+📐 COMPOSICIÓN:
+- PLANO: wide o medium-wide shot, vertical 4:5
+- EL ENTORNO ES EL PROTAGONISTA: arquitectura, callejones, bosques, cementerios, carreteras
 - HUMANO: {sujeto_humano} — de espaldas o a distancia, ocupando MÁXIMO 20-25% del encuadre
-- EXACTAMENTE UNA figura humana y UNA entidad
+- EXACTAMENTE UNA figura humana
 
-🚫 PROHIBIDO: gore, sangre, heridas, mutilaciones, caras deformes o monstruosas en primer plano, texto, watermarks, logos, multitudes, personas duplicadas, clones, gemelos
+🚫 PROHIBIDO: gore, sangre, heridas, mutilaciones, caras en primer plano, texto, watermarks, logos, multitudes, personas duplicadas, clones, gemelos
 
 Devuelve SOLO el prompt en inglés, directo, sin explicaciones.
 """
@@ -266,23 +302,24 @@ Devuelve SOLO el prompt en inglés, directo, sin explicaciones.
     payload = {
         "model": "deepseek-chat",
         "messages": [{"role": "user", "content": prompt}],
-        "temperature": 0.7,
+        "temperature": 0.6,
         "max_tokens": 350,
     }
     try:
         r = requests.post(url, headers=headers, json=payload, timeout=60)
         r.raise_for_status()
         prompt_imagen = r.json()["choices"][0]["message"]["content"].strip()
-        prompt_imagen += ", vertical 4:5 cinematic horror poster style, volumetric fog, high contrast, one accent glow color, sharp focus, no text, no watermark"
+        prompt_imagen += ", vertical 4:5 cinematic poster style, volumetric fog, high contrast, one accent glow color, sharp focus, no text, no watermark"
         return prompt_imagen
     except Exception as e:
         print(f"❌ Error generando prompt de imagen: {e}")
-        return f"Vertical 4:5 cinematic horror film still, dark atmospheric scene with volumetric fog and one accent glow, {entidad}, wide shot, no text"
+        return f"Vertical 4:5 cinematic film still, dark atmospheric scene with volumetric fog, wide shot, no text"
 
 # ================================================================
-# 🛡️ FILTRAR PROMPT PARA AGNES
+# 🛡️ FILTRAR PROMPT PARA AGNES (MUCHO MÁS AGRESIVO)
 # ================================================================
 def filtrar_prompt_para_agnes(prompt):
+    # Palabras que ACTIVAN los filtros de Agnes
     palabras_prohibidas = [
         "gore", "blood", "bleeding", "wound", "injury", "mutilated", "disfigured",
         "corpse", "dead", "death", "dying", "kill", "murder", "assassination",
@@ -299,15 +336,23 @@ def filtrar_prompt_para_agnes(prompt):
         "frightening", "scary", "creepy", "sinister", "menacing", "threatening",
         "gloom", "grim", "dread", "fear", "panic", "scream", "shriek", "howl",
         "attack", "assault", "stabbing", "strangle", "choke", "cut", "slash",
-        "corpse", "dead body", "murdered", "vicious"
+        "corpse", "dead body", "murdered", "vicious", "haunted", "spooky",
+        "paranormal", "supernatural", "eerie", "uncanny", "macabre", "ghastly"
     ]
     prompt_limpio = prompt
     for palabra in palabras_prohibidas:
         prompt_limpio = re.sub(rf'\b{palabra}\b', '', prompt_limpio, flags=re.IGNORECASE)
     prompt_limpio = re.sub(r'\s+', ' ', prompt_limpio).strip()
-    if len(prompt_limpio.split()) < 10:
-        prompt_limpio = "Cinematic landscape photograph, atmospheric moonlight, mysterious urban scene at night, no violence, no horror, cinematic mood"
-    print(f"🛡️ Prompt filtrado para Agnes (caracteres: {len(prompt_limpio)})")
+    
+    # Si el prompt queda muy corto, usar uno genérico y seguro
+    if len(prompt_limpio.split()) < 15:
+        prompt_limpio = "Cinematic landscape photograph, atmospheric moonlight, mysterious urban scene at night, cinematic mood, wide shot, vertical composition, no people, no text, no violence"
+    
+    # Añadir prefijo neutral
+    if not prompt_limpio.lower().startswith("cinematic"):
+        prompt_limpio = "Cinematic atmospheric photograph, " + prompt_limpio
+    
+    print(f"🛡️ Prompt filtrado para Agnes ({len(prompt_limpio)} caracteres)")
     return prompt_limpio
 
 # ================================================================
@@ -437,10 +482,11 @@ Devuelve SOLO el resumen, sin títulos, sin hashtags, sin llamados a la acción.
         return " ".join(palabras[:100]) + "..."
 
 # ================================================================
-# 🖼️ GENERAR IMAGEN CON AGNES AI
+# 🖼️ GENERAR IMAGEN CON AGNES AI (CON PLACEHOLDER LOCAL)
 # ================================================================
 def generar_imagen_agnes(prompt, width=1080, height=1350, intentos=5, espera_segundos=15):
     prompt_limpio = prompt[:800]
+    prompt_limpio = filtrar_prompt_para_agnes(prompt_limpio)
     url = "https://apihub.agnes-ai.com/v1/images/generations"
     headers = {"Authorization": f"Bearer {AGNES_API_KEY}", "Content-Type": "application/json"}
     negative = (
@@ -466,30 +512,33 @@ def generar_imagen_agnes(prompt, width=1080, height=1350, intentos=5, espera_seg
         "num_images": 1,
     }
     for intento in range(1, intentos + 1):
-        print(f"🎨 Intento {intento}/{intentos} generando imagen vertical...")
+        print(f"🎨 Intento {intento}/{intentos} generando imagen...")
         try:
             response = requests.post(url, headers=headers, json=payload, timeout=90)
             if response.status_code == 200:
                 data = response.json()
                 image_url = data["data"][0]["url"]
-                print(f"✅ Imagen generada (1080x{height}) en el intento {intento}")
+                print(f"✅ Imagen generada (intento {intento})")
                 return image_url
             else:
                 error_msg = response.text[:200]
                 print(f"❌ Error en Agnes AI: {response.status_code} - {error_msg}")
                 if "content_policy_violation" in error_msg:
-                    print("⚠️ Violación de política de contenido. No se reintentará con este prompt.")
+                    print("⚠️ Violación de política de contenido.")
                     break
         except Exception as e:
             print(f"❌ Error de conexión: {e}")
         if intento < intentos:
             print(f"⏳ Esperando {espera_segundos}s antes de reintentar...")
             time.sleep(espera_segundos)
-    print(f"❌ No se pudo generar la imagen después de {intentos} intentos.")
+    print("⚠️ No se pudo generar imagen con Agnes. Usando placeholder local.")
+    placeholder_path = generar_placeholder_local("Imagen no disponible", (width, height))
+    if placeholder_path:
+        return placeholder_path
     return None
 
 # ================================================================
-# 🎤 GENERAR AUDIO CON GTTS (SIMPLIFICADO)
+# 🎤 GENERAR AUDIO CON GTTS
 # ================================================================
 def generar_audio_gtts(texto, index):
     texto_limpio = limpiar_texto_para_audio(texto)
@@ -500,7 +549,7 @@ def generar_audio_gtts(texto, index):
         tts = gTTS(text=texto_limpio, lang='es', slow=False)
         tts.save(filename)
         if os.path.exists(filename) and os.path.getsize(filename) > 0:
-            print(f"🔊 Audio generado con gTTS (simplificado)")
+            print(f"🔊 Audio generado con gTTS")
             return filename
     except Exception as e:
         print(f"❌ gTTS falló: {e}")
@@ -511,29 +560,42 @@ def generar_audio_gtts(texto, index):
 # ================================================================
 def crear_y_subir_video(texto, imagen_url):
     if not CLOUDINARY_DISPONIBLE:
-        print("❌ Cloudinary no configurado. No se puede subir el video.")
+        print("❌ Cloudinary no configurado.")
         return None
 
-    print("🎬 Creando video Reel con narración (gTTS)...")
+    print("🎬 Creando video Reel con narración...")
     
-    # 1. Descargar imagen
-    img_response = requests.get(imagen_url)
-    if img_response.status_code != 200:
-        print("❌ Error descargando imagen para el video")
-        return None
-    with open("temp_background.jpg", "wb") as f:
-        f.write(img_response.content)
+    # 1. Descargar imagen (con retry y manejo SSL)
+    img_path = None
+    if imagen_url and imagen_url.startswith("http"):
+        img_data = descargar_imagen_con_retry(imagen_url)
+        if img_data:
+            img_path = "temp_background.jpg"
+            with open(img_path, "wb") as f:
+                f.write(img_data)
+            print("✅ Imagen descargada")
+        else:
+            print("⚠️ No se pudo descargar la imagen, usando placeholder")
+    else:
+        # Si es un archivo local (placeholder)
+        img_path = imagen_url
+    
+    if not img_path or not os.path.exists(img_path):
+        img_path = generar_placeholder_local("Reel", (1080, 1920))
+        if not img_path:
+            print("❌ No se pudo generar placeholder. Abortando.")
+            return None
     
     # 2. Generar audio
-    print("🔊 Generando narración con gTTS...")
+    print("🔊 Generando narración...")
     audio_path = generar_audio_gtts(texto, "reel")
     if not audio_path:
-        print("❌ No se pudo generar audio. Abortando video.")
+        print("❌ No se pudo generar audio.")
         return None
     
-    # 3. Crear clip de imagen (resize a 1080x1920)
+    # 3. Crear clip de imagen
     try:
-        clip = ImageClip("temp_background.jpg").resized((1080, 1920))
+        clip = ImageClip(img_path).resized((1080, 1920))
     except Exception as e:
         print(f"❌ Error procesando imagen: {e}")
         return None
@@ -542,7 +604,7 @@ def crear_y_subir_video(texto, imagen_url):
     try:
         audio_clip = AudioFileClip(audio_path)
         duracion = audio_clip.duration
-        print(f"🎵 Duración del audio: {duracion:.1f} segundos")
+        print(f"🎵 Duración del audio: {duracion:.1f}s")
     except Exception as e:
         print(f"❌ Error cargando audio: {e}")
         return None
@@ -574,10 +636,10 @@ def crear_y_subir_video(texto, imagen_url):
         )
         txt_clip = txt_clip.with_duration(duracion).with_position('center')
     except Exception as e:
-        print(f"⚠️ Error creando texto superpuesto: {e}")
+        print(f"⚠️ Error creando texto: {e}")
         txt_clip = None
     
-    # 6. Combinar video + audio (+ texto)
+    # 6. Combinar
     clip = clip.with_duration(duracion)
     if txt_clip:
         final = CompositeVideoClip([clip, txt_clip])
@@ -589,13 +651,13 @@ def crear_y_subir_video(texto, imagen_url):
     output_path = "reel.mp4"
     try:
         final.write_videofile(output_path, fps=24, codec='libx264', logger=None, verbose=False)
-        print(f"✅ Video con narración guardado en {output_path}")
+        print(f"✅ Video guardado en {output_path}")
     except Exception as e:
-        print(f"❌ Error exportando video: {e}")
+        print(f"❌ Error exportando: {e}")
         return None
     
     # 8. Subir a Cloudinary
-    print("📤 Subiendo video a Cloudinary...")
+    print("📤 Subiendo a Cloudinary...")
     try:
         result = upload(
             output_path,
@@ -612,7 +674,7 @@ def crear_y_subir_video(texto, imagen_url):
     finally:
         for f in [output_path, "temp_background.jpg", audio_path]:
             try:
-                if os.path.exists(f):
+                if f and os.path.exists(f):
                     os.remove(f)
             except:
                 pass
@@ -621,7 +683,7 @@ def crear_y_subir_video(texto, imagen_url):
 # MAIN
 # ================================================================
 def main():
-    print("👻 Iniciando Bot de Terror (gTTS simplificado → Cloudinary → Make)")
+    print("👻 Iniciando Bot de Terror (gTTS → Cloudinary → Make)")
     print(f"📅 {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
 
     if not all([DEEPSEEK_API_KEY, MAKE_WEBHOOK_URL_TERROR, AGNES_API_KEY]):
@@ -635,46 +697,52 @@ def main():
     tema = obtener_tema_no_repetido(temas, estado)
     print(f"📖 Tema seleccionado: {tema}")
 
-    print("📝 Generando historia completa con DeepSeek...")
+    print("📝 Generando historia completa...")
     historia_base = generar_historia_completa(tema)
     if not historia_base:
-        print("❌ Falló la generación de la historia. Abortando sin guardar estado.")
+        print("❌ Falló la generación de la historia.")
         sys.exit(1)
 
-    print(f"✅ Historia completa generada ({len(historia_base.split())} palabras aprox)")
+    print(f"✅ Historia generada ({len(historia_base.split())} palabras)")
 
-    print("🧑 Detectando personaje del relato...")
+    print("🧑 Detectando personaje...")
     personaje = detectar_personaje(historia_base)
 
-    print("🎨 Generando prompt de imagen para post...")
-    prompt_imagen_post = generar_prompt_imagen(historia_base, tema, personaje)
-    prompt_imagen_post_filtrado = filtrar_prompt_para_agnes(prompt_imagen_post)
-    image_url = generar_imagen_agnes(prompt_imagen_post_filtrado, width=1080, height=1350, intentos=5)
-    if image_url is None:
-        image_url = "https://via.placeholder.com/1080x1350/1a1a1a/ff0000?text=Terror"
+    # Imagen para post (4:5)
+    print("🎨 Generando prompt para post...")
+    prompt_post = generar_prompt_imagen(historia_base, tema, personaje)
+    image_url = generar_imagen_agnes(prompt_post, width=1080, height=1350, intentos=5)
+    if not image_url:
+        image_url = generar_placeholder_local("Post", (1080, 1350))
+        if not image_url:
+            image_url = "https://via.placeholder.com/1080x1350/1a1a1a/ff0000?text=Post"
 
-    print("🎨 Generando prompt de imagen para Reel (9:16)...")
-    prompt_imagen_reel = prompt_imagen_post.replace("4:5", "9:16").replace("vertical 4:5", "vertical 9:16")
-    prompt_imagen_reel_filtrado = filtrar_prompt_para_agnes(prompt_imagen_reel)
-    image_reel_url = generar_imagen_agnes(prompt_imagen_reel_filtrado, width=1080, height=1920, intentos=3)
-    if image_reel_url is None:
-        image_reel_url = "https://via.placeholder.com/1080x1920/1a1a1a/ff0000?text=Reel"
+    # Imagen para Reel (9:16)
+    print("🎨 Generando prompt para Reel...")
+    prompt_reel = prompt_post.replace("4:5", "9:16")
+    image_reel_url = generar_imagen_agnes(prompt_reel, width=1080, height=1920, intentos=3)
+    if not image_reel_url:
+        image_reel_url = generar_placeholder_local("Reel", (1080, 1920))
+        if not image_reel_url:
+            image_reel_url = "https://via.placeholder.com/1080x1920/1a1a1a/ff0000?text=Reel"
 
     texto_final = agregar_cta_final(historia_base)
-    print("✅ CTA, hashtags y leyenda de IA agregados")
+    print("✅ CTA y hashtags agregados")
 
-    print("📝 Generando resumen para Reel (100 palabras)...")
+    print("📝 Generando resumen para Reel...")
     resumen_reel = generar_resumen_reel(historia_base)
     print(f"✅ Resumen: {len(resumen_reel.split())} palabras")
 
+    # Crear video
     reel_video_url = None
     if CLOUDINARY_DISPONIBLE:
         reel_video_url = crear_y_subir_video(resumen_reel, image_reel_url)
-        if reel_video_url is None:
-            print("⚠️ Falló la creación/subida del video. El Reel se omitirá.")
+        if not reel_video_url:
+            print("⚠️ Falló la creación/subida del video.")
     else:
-        print("⏭️ Omisión de video (Cloudinary no configurado)")
+        print("⏭️ Cloudinary no configurado, omitiendo Reel.")
 
+    # Enviar a Make
     payload = {
         "post_message": texto_final,
         "post_image": image_url,
@@ -696,7 +764,6 @@ def main():
             print(f"✅ Relato publicado: {tema}")
         else:
             print(f"❌ Make respondió: {r.status_code}")
-            print(f"   Respuesta: {r.text[:200]}")
     except Exception as e:
         print(f"❌ Error enviando a Make: {e}")
 
