@@ -9,6 +9,7 @@ import requests
 import moviepy.editor as mp
 from cloudinary.uploader import upload
 import cloudinary
+from gtts import gTTS
 
 # ================================================================
 # CONFIGURACIÓN
@@ -532,18 +533,19 @@ def generar_imagen_agnes(prompt, width=1080, height=1350, intentos=5, espera_seg
     return None
 
 # ================================================================
-# 🎬 CREAR VIDEO Y SUBIR A CLOUDINARY
+# 🎬 CREAR VIDEO CON NARRACIÓN Y SUBIR A CLOUDINARY
 # ================================================================
 def crear_y_subir_video(texto, imagen_url):
     """
-    Crea un video de 6 segundos y lo sube a Cloudinary.
+    Crea un video de 6 segundos con imagen, texto superpuesto y NARRACIÓN DE VOZ (gTTS),
+    y lo sube a Cloudinary.
     Retorna la URL pública del video.
     """
     if not CLOUDINARY_DISPONIBLE:
         print("❌ Cloudinary no configurado. No se puede subir el video.")
         return None
 
-    print("🎬 Creando video Reel...")
+    print("🎬 Creando video Reel con narración de voz...")
     
     # 1. Descargar imagen
     img_response = requests.get(imagen_url)
@@ -554,14 +556,34 @@ def crear_y_subir_video(texto, imagen_url):
     with open("temp_background.jpg", "wb") as f:
         f.write(img_response.content)
     
-    # 2. Crear clip de imagen (resize a 1080x1920)
+    # 2. Generar audio con gTTS (voz en español)
+    print("🔊 Generando narración con voz...")
+    try:
+        tts = gTTS(text=texto, lang='es', slow=False)
+        audio_path = "narracion.mp3"
+        tts.save(audio_path)
+        print(f"✅ Audio guardado en {audio_path}")
+    except Exception as e:
+        print(f"❌ Error generando audio: {e}")
+        return None
+    
+    # 3. Crear clip de imagen (resize a 1080x1920)
     try:
         clip = mp.ImageClip("temp_background.jpg").resize(newsize=(1080, 1920))
     except Exception as e:
         print(f"❌ Error procesando imagen: {e}")
         return None
     
-    # 3. Añadir texto superpuesto
+    # 4. Cargar audio
+    try:
+        audio_clip = mp.AudioFileClip(audio_path)
+        duracion = audio_clip.duration
+        print(f"🎵 Duración del audio: {duracion:.1f} segundos")
+    except Exception as e:
+        print(f"❌ Error cargando audio: {e}")
+        return None
+    
+    # 5. Añadir texto superpuesto (opcional, para que se vea el resumen)
     lineas = []
     palabras = texto.split()
     linea_actual = ""
@@ -574,29 +596,41 @@ def crear_y_subir_video(texto, imagen_url):
     if linea_actual:
         lineas.append(linea_actual.strip())
     
-    txt_clip = mp.TextClip(
-        "\n".join(lineas),
-        fontsize=40,
-        color='white',
-        stroke_color='black',
-        stroke_width=2,
-        font='Arial',
-        method='caption',
-        size=(1000, 1800),
-        align='center'
-    )
-    txt_clip = txt_clip.set_duration(6).set_position('center')
+    try:
+        txt_clip = mp.TextClip(
+            "\n".join(lineas),
+            fontsize=40,
+            color='white',
+            stroke_color='black',
+            stroke_width=2,
+            font='Arial',
+            method='caption',
+            size=(1000, 1800),
+            align='center'
+        )
+        txt_clip = txt_clip.set_duration(duracion).set_position('center')
+    except Exception as e:
+        print(f"⚠️ Error creando texto superpuesto: {e}")
+        txt_clip = None
     
-    # 4. Combinar
-    clip = clip.set_duration(6)
-    final = mp.CompositeVideoClip([clip, txt_clip])
+    # 6. Combinar video + audio (+ texto)
+    clip = clip.set_duration(duracion)
+    if txt_clip:
+        final = mp.CompositeVideoClip([clip, txt_clip])
+    else:
+        final = clip
+    final = final.set_audio(audio_clip)
     
-    # 5. Exportar
+    # 7. Exportar
     output_path = "reel.mp4"
-    final.write_videofile(output_path, fps=24, codec='libx264', audio=False, verbose=False, logger=None)
-    print(f"✅ Video guardado en {output_path}")
+    try:
+        final.write_videofile(output_path, fps=24, codec='libx264', verbose=False, logger=None)
+        print(f"✅ Video con narración guardado en {output_path}")
+    except Exception as e:
+        print(f"❌ Error exportando video: {e}")
+        return None
     
-    # 6. Subir a Cloudinary
+    # 8. Subir a Cloudinary
     print("📤 Subiendo video a Cloudinary...")
     try:
         result = upload(
@@ -616,6 +650,7 @@ def crear_y_subir_video(texto, imagen_url):
         try:
             os.remove(output_path)
             os.remove("temp_background.jpg")
+            os.remove(audio_path)
         except:
             pass
 
@@ -623,7 +658,7 @@ def crear_y_subir_video(texto, imagen_url):
 # MAIN
 # ================================================================
 def main():
-    print("👻 Iniciando Bot de Terror (genera video → Cloudinary → Make)")
+    print("👻 Iniciando Bot de Terror (genera video con NARRACIÓN → Cloudinary → Make)")
     print(f"📅 {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
 
     # Validar variables de entorno
@@ -681,7 +716,7 @@ def main():
     resumen_reel = generar_resumen_reel(historia_base)
     print(f"✅ Resumen: {len(resumen_reel.split())} palabras")
 
-    # ---------- GENERAR VIDEO Y SUBIR A CLOUDINARY ----------
+    # ---------- GENERAR VIDEO CON NARRACIÓN Y SUBIR A CLOUDINARY ----------
     reel_video_url = None
     if CLOUDINARY_DISPONIBLE:
         reel_video_url = crear_y_subir_video(resumen_reel, image_reel_url)
