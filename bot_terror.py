@@ -11,6 +11,7 @@ from cloudinary.uploader import upload
 import cloudinary
 from gtts import gTTS
 from PIL import Image, ImageDraw, ImageFont
+import io
 
 # ================================================================
 # CONFIGURACIÓN
@@ -25,6 +26,8 @@ CLOUD_API_SECRET = os.getenv("CLOUDINARY_API_SECRET")
 
 ESTADO_FILE = "estado_terror.json"
 
+# Configurar Cloudinary
+CLOUDINARY_DISPONIBLE = False
 if all([CLOUD_NAME, CLOUD_API_KEY, CLOUD_API_SECRET]):
     cloudinary.config(
         cloud_name=CLOUD_NAME,
@@ -32,63 +35,23 @@ if all([CLOUD_NAME, CLOUD_API_KEY, CLOUD_API_SECRET]):
         api_secret=CLOUD_API_SECRET
     )
     CLOUDINARY_DISPONIBLE = True
+    print("✅ Cloudinary configurado correctamente")
 else:
-    CLOUDINARY_DISPONIBLE = False
-    print("⚠️ Cloudinary no configurado. No se podrán subir videos.")
+    print("⚠️ Cloudinary no configurado. No se podrán subir placeholders ni videos.")
 
 # ================================================================
-# 🎨 PALETAS Y ESTILOS
+# 🖼️ GENERAR PLACEHOLDER LOCAL Y SUBIR A CLOUDINARY
 # ================================================================
-PALETAS_COLOR = [
-    "Cold cyan blue LED fog, navy blue modern shadows, crisp white moonlight",
-    "Emerald green twilight, modern city haze, muted sage ambient lighting",
-    "Deep violet LED haze, electric purple ambient light, dark magenta shadows",
-    "Slate gray modern tones, freezing ice blue highlight, dim overcast ambient",
-    "Dark teal and deep blue, modern oceanic midnight, cold misty atmosphere",
-    "Stark black and white high contrast, silver moonlight, modern pitch shadows",
-    "Desaturated cold film look, moody cinematic lighting, 8k hyperrealistic",
-    "Neon purple and electric pink, deep violet shadows, cyberpunk modern lights",
-    "Electric yellow and charcoal black, stark contrast, dusty atmospheric haze",
-    "Deep crimson red, pitch black shadow, intense orange emergency LED lights",
-    "Blood red and burnt orange, modern charcoal shadows, hellish glow",
-    "Modern warm amber and dark mahogany, golden LED lighting, deep brown shadows",
-    "Fiery sunset orange, deep purple shadows, modern red highlights",
-    "Toxic lime green and pitch black, eerie chemical modern glow, radioactive haze",
-    "Clean modern daylight, neutral gray ambient, crisp shadows",
-    "Modern LED streetlight glow, cool white highlights, urban night atmosphere",
-]
-PALETA_COLOR_ACTUAL = random.choice(PALETAS_COLOR)
-
-ESTILOS_VISUALES = [
-    "Modern 2026 cinematic photograph, bright contemporary lighting, well-lit scene, sharp focus, current era",
-    "Contemporary thriller photography 2026, soft modern ambient diffusion, bright highlights, present day",
-    "Modern documentary realistic photo 2026, natural crisp skin texture, current fashion and architecture",
-    "8k resolution modern cinematic frame, ultra clear facial details, bright exposure, contemporary era",
-    "Modern fashion photography style 2026, dramatic but well-lit, clean skin, current trends",
-    "Modern noir style 2026, high contrast but well-exposed, contemporary urban atmosphere",
-]
-ESTILO_VISUAL_ACTUAL = random.choice(ESTILOS_VISUALES)
-
-CTAS_FINALES = [
-    "\n\n💀 ¿Te ha pasado algo parecido? Cuéntanos tu historia en comentarios. 👇",
-    "\n\n👻 ¿Conoces una leyenda similar? Compártela en los comentarios. 👇",
-    "\n\n🌙 ¿Qué harías tú en esta situación? Te leemos en comentarios. 👇",
-    "\n\n👁️ ¿Crees que estas historias son reales? Déjanos tu opinión. 👇",
-    "\n\n🔮 ¿Has vivido algo sobrenatural? Cuéntanos tu experiencia. 👇",
-    "\n\n😱 ¿Te atreverías a visitar este lugar? Cuéntanos. 👇",
-    "\n\n🌑 ¿Conoces más historias así? Compártelas en comentarios. 👇",
-    "\n\n💬 Tu historia puede ser la siguiente. Cuéntanos. 👇",
-]
-
-# ================================================================
-# 🖼️ GENERAR PLACEHOLDER LOCAL
-# ================================================================
-def generar_placeholder_local(texto="Terror", size=(1080, 1920)):
+def generar_y_subir_placeholder(texto="Imagen no disponible", size=(1080, 1350)):
+    """
+    Genera un placeholder local y lo sube a Cloudinary para obtener una URL pública.
+    Si Cloudinary no está disponible, devuelve None.
+    """
     try:
         img = Image.new("RGB", size, (20, 20, 20))
         draw = ImageDraw.Draw(img)
         try:
-            font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 120)
+            font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 80)
         except:
             font = ImageFont.load_default()
         bbox = draw.textbbox((0, 0), texto, font=font)
@@ -97,13 +60,29 @@ def generar_placeholder_local(texto="Terror", size=(1080, 1920)):
         draw.text((x, y), texto, fill="red", font=font)
         path = f"placeholder_{random.randint(1000, 9999)}.jpg"
         img.save(path)
-        return path
+        print(f"🖼️ Placeholder local generado: {path}")
+        
+        if CLOUDINARY_DISPONIBLE:
+            print("📤 Subiendo placeholder a Cloudinary...")
+            result = upload(
+                path,
+                resource_type="image",
+                public_id=f"placeholder_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
+                overwrite=True
+            )
+            url = result.get('secure_url')
+            print(f"✅ Placeholder subido: {url}")
+            os.remove(path)  # limpiar local
+            return url
+        else:
+            print("⚠️ Cloudinary no disponible, placeholder local no se subirá")
+            return None
     except Exception as e:
-        print(f"⚠️ Error generando placeholder: {e}")
+        print(f"⚠️ Error generando/subiendo placeholder: {e}")
         return None
 
 # ================================================================
-# FUNCIONES AUXILIARES
+# FUNCIONES AUXILIARES (cargar_temas, estado, etc.)
 # ================================================================
 def cargar_temas():
     try:
@@ -206,12 +185,14 @@ Devuelve SOLO el JSON, sin explicaciones, sin markdown.
         "max_tokens": 300,
         "response_format": {"type": "json_object"}
     }
+    
     try:
         r = requests.post(url, headers=headers, json=payload, timeout=60)
         r.raise_for_status()
         respuesta = r.json()["choices"][0]["message"]["content"].strip()
         respuesta = re.sub(r"```json\s*", "", respuesta)
         respuesta = re.sub(r"```\s*", "", respuesta)
+        
         data = json.loads(respuesta, strict=False)
         print(f"🧑 Personaje detectado: {data.get('genero', '?')}, {data.get('edad_aprox', '?')} años, {data.get('ocupacion', '?')}")
         return data
@@ -256,54 +237,62 @@ DIRECTRICES_ENTIDAD = {
 def generar_prompt_imagen(historia, tema, personaje):
     tipo = detectar_tipo_entidad(tema)
     entidad = DIRECTRICES_ENTIDAD[tipo]
+    
     genero = personaje.get("genero", "hombre")
     edad = personaje.get("edad_aprox", 35)
     if genero == "mujer":
         sujeto_humano = f"a {edad}-year-old Mexican woman"
     else:
         sujeto_humano = f"a {edad}-year-old Mexican man"
+    
+    prompt = f"""Eres un DIRECTOR DE FOTOGRAFÍA DE CINE.
+Crea un PROMPT DE IMAGEN EN INGLÉS para una imagen VERTICAL (4:5) que sea la escena MÁS REPRESENTATIVA de esta historia.
 
-    prompt = f"""Crea un PROMPT DE IMAGEN EN INGLÉS para una fotografía vertical (4:5) que represente esta escena:
+HISTORIA:
+\"\"\"
+{limpiar_texto_para_imagen(historia)[:400]}
+\"\"\"
+TEMA: {tema}
+PERSONAJE HUMANO: {sujeto_humano}
 
-Historia: {limpiar_texto_para_imagen(historia)[:400]}
+🎬 ESTILO VISUAL:
+- Cinematic film still, dramatic volumetric lighting, atmospheric fog
+- High contrast chiaroscuro: deep black shadows + ONE dominant accent glow (crimson red, electric cyan, amber or toxic green)
+- Moonlight beams, god rays, anamorphic lens feel, shallow depth of field
+- Saturated but elegant cinematic color grading
 
-Ubicación: {tema}
+📐 COMPOSICIÓN:
+- PLANO: wide o medium-wide shot, vertical 4:5
+- EL ENTORNO ES EL PROTAGONISTA: arquitectura, callejones, bosques, cementerios, carreteras
+- HUMANO: {sujeto_humano} — de espaldas o a distancia, ocupando MÁXIMO 20-25% del encuadre
+- EXACTAMENTE UNA figura humana
 
-Reglas de composición:
-- Estilo: fotografía cinematográfica, iluminación dramática, niebla atmosférica
-- Plano: gran angular o plano medio, vertical
-- El protagonista es el entorno: arquitectura, callejones, bosques, carreteras
-- Persona: {sujeto_humano} (de espaldas o a distancia, ocupando máximo el 20% del encuadre)
-- Prohibido: gore, sangre, violencia, caras en primer plano, texto, marcas de agua
-- Colores: tonos fríos, alto contraste, un acento de color brillante (rojo, cian, ámbar o verde tóxico)
+🚫 PROHIBIDO: gore, sangre, heridas, mutilaciones, caras en primer plano, texto, watermarks, logos, multitudes, personas duplicadas, clones, gemelos
 
-Devuelve SOLO el prompt en inglés, sin introducciones."""
+Devuelve SOLO el prompt en inglés, directo, sin explicaciones.
+"""
     url = "https://api.deepseek.com/v1/chat/completions"
     headers = {"Authorization": f"Bearer {DEEPSEEK_API_KEY}", "Content-Type": "application/json"}
     payload = {
         "model": "deepseek-chat",
         "messages": [{"role": "user", "content": prompt}],
         "temperature": 0.6,
-        "max_tokens": 300,
+        "max_tokens": 350,
     }
     try:
         r = requests.post(url, headers=headers, json=payload, timeout=60)
         r.raise_for_status()
         prompt_imagen = r.json()["choices"][0]["message"]["content"].strip()
-        # Añadir restricciones adicionales para evitar bloqueos
-        prompt_imagen += ", vertical 4:5, cinematic, no violence, no gore, no blood, no text, no watermark, wide shot, environment as main subject"
+        prompt_imagen += ", vertical 4:5 cinematic poster style, volumetric fog, high contrast, one accent glow color, sharp focus, no text, no watermark"
         return prompt_imagen
     except Exception as e:
-        print(f"❌ Error generando prompt: {e}")
-        return None
+        print(f"❌ Error generando prompt de imagen: {e}")
+        return f"Vertical 4:5 cinematic film still, dark atmospheric scene with volumetric fog, wide shot, no text"
 
 # ================================================================
-# 🛡️ FILTRAR PROMPT PARA AGNES (MUY AGRESIVO)
+# 🛡️ FILTRAR PROMPT PARA AGNES
 # ================================================================
 def filtrar_prompt_para_agnes(prompt):
-    if not prompt:
-        return "Cinematic atmospheric photograph, wide shot of a mysterious urban scene at night, volumetric fog, moonlight, high contrast, no people, no text, vertical 4:5"
-    # Eliminar palabras problemáticas
     palabras_prohibidas = [
         "gore", "blood", "bleeding", "wound", "injury", "mutilated", "disfigured",
         "corpse", "dead", "death", "dying", "kill", "murder", "assassination",
@@ -321,15 +310,20 @@ def filtrar_prompt_para_agnes(prompt):
         "gloom", "grim", "dread", "fear", "panic", "scream", "shriek", "howl",
         "attack", "assault", "stabbing", "strangle", "choke", "cut", "slash",
         "corpse", "dead body", "murdered", "vicious", "haunted", "spooky",
-        "paranormal", "supernatural", "eerie", "uncanny", "macabre", "ghastly",
-        "disturbing", "unsettling", "creep", "lurking", "ominous"
+        "paranormal", "supernatural", "eerie", "uncanny", "macabre", "ghastly"
     ]
     prompt_limpio = prompt
     for palabra in palabras_prohibidas:
         prompt_limpio = re.sub(rf'\b{palabra}\b', '', prompt_limpio, flags=re.IGNORECASE)
     prompt_limpio = re.sub(r'\s+', ' ', prompt_limpio).strip()
-    if len(prompt_limpio.split()) < 10:
-        prompt_limpio = "Cinematic atmospheric photograph, wide shot of an urban scene at night, volumetric fog, moonlight, high contrast, vertical 4:5, no people, no text"
+    
+    if len(prompt_limpio.split()) < 15:
+        prompt_limpio = "Cinematic landscape photograph, atmospheric moonlight, mysterious urban scene at night, cinematic mood, wide shot, vertical composition, no people, no text, no violence"
+    
+    if not prompt_limpio.lower().startswith("cinematic"):
+        prompt_limpio = "Cinematic atmospheric photograph, " + prompt_limpio
+    
+    print(f"🛡️ Prompt filtrado para Agnes ({len(prompt_limpio)} caracteres)")
     return prompt_limpio
 
 # ================================================================
@@ -349,10 +343,10 @@ Tu tarea es DOCUMENTAR un testimonio COMPLETO y AUTOCONCLUSIVO sobre:
 - ESTRUCTURA OBLIGATORIA en PÁRRAFOS (cada párrafo separado por una línea en blanco):
   1. GANCHO inicial impactante (1-2 frases)
   2. CONTEXTO: quién es el narrador, dónde y cuándo ocurrió
-  3. DESARROLLO: los hechos paso a paso (2-3 párrafos)
+  3. DESARROLLO: los hechos sobrenaturales paso a paso, con detalles sensoriales (2-3 párrafos)
   4. CLÍMAX: el momento más intenso (1 párrafo)
-  5. DESENLACE: cómo terminó todo (1 párrafo)
-- Tono NATURAL Y COLOQUIAL.
+  5. DESENLACE: cómo terminó todo y qué le quedó al narrador (1 párrafo)
+- Tono NATURAL Y COLOQUIAL, como alguien contando su experiencia real.
 - Detalles específicos: nombres de lugares reales, años concretos, oficios reales.
 
 Formato EXACTO de salida:
@@ -362,9 +356,9 @@ Formato EXACTO de salida:
 
 [Segundo párrafo]
 
-[...]
+[... y así sucesivamente, separados por línea en blanco]
 
-(NO agregues hashtags ni llamadas a comentar)
+(NO agregues hashtags ni llamadas a comentar, yo los agregaré después)
 """
     url = "https://api.deepseek.com/v1/chat/completions"
     headers = {"Authorization": f"Bearer {DEEPSEEK_API_KEY}", "Content-Type": "application/json"}
@@ -381,13 +375,13 @@ Formato EXACTO de salida:
             r.raise_for_status()
             resultado = r.json()["choices"][0]["message"]["content"].strip()
             if "[Error" in resultado or len(resultado) < 200:
-                raise ValueError("Respuesta corta o con error")
+                raise ValueError("Respuesta muy corta o con error")
             lineas = resultado.split('\n')
             texto_narrativo = '\n'.join(linea for linea in lineas if linea.strip() and not linea.strip().startswith('🌙'))
             palabras = len(texto_narrativo.split())
             print(f"   📊 Palabras generadas: {palabras}")
             if palabras < 250:
-                print(f"   ⚠️ Muy corto ({palabras}). Reintentando...")
+                print(f"   ⚠️ Muy corto ({palabras} palabras). Reintentando...")
                 raise ValueError("Historia demasiado corta")
             return resultado
         except Exception as e:
@@ -422,19 +416,20 @@ def agregar_cta_final(texto):
 # 📝 GENERAR RESUMEN PARA REEL
 # ================================================================
 def generar_resumen_reel(historia_completa):
-    prompt = f"""Resume el siguiente relato en un texto CORTO y ATMOSFÉRICO de EXACTAMENTE 100 palabras, ideal para un Reel.
+    prompt = f"""Resume el siguiente relato de terror en un texto CORTO y ATMOSFÉRICO de EXACTAMENTE 100 palabras, ideal para un Reel de Facebook.
 
 REGLAS:
-- Mantén el suspenso.
-- Incluye lugar y narrador.
-- Extensión: 100 palabras.
+- Mantén el suspenso y el tono de terror.
+- Incluye el lugar y el nombre del narrador si aparece.
+- Debe ser un resumen que enganche al espectador a querer leer el post completo.
+- Extensión: 100 palabras exactas (aproximadamente).
 
-RELATO:
+RELATO COMPLETO:
 \"\"\"
 {historia_completa}
 \"\"\"
 
-Devuelve SOLO el resumen, sin títulos, sin hashtags, sin llamados.
+Devuelve SOLO el resumen, sin títulos, sin hashtags, sin llamados a la acción.
 """
     url = "https://api.deepseek.com/v1/chat/completions"
     headers = {"Authorization": f"Bearer {DEEPSEEK_API_KEY}", "Content-Type": "application/json"}
@@ -458,23 +453,25 @@ Devuelve SOLO el resumen, sin títulos, sin hashtags, sin llamados.
         return " ".join(palabras[:100]) + "..."
 
 # ================================================================
-# 🖼️ GENERAR IMAGEN CON AGNES AI (CON FALLBACK A PLACEHOLDER)
+# 🖼️ GENERAR IMAGEN CON AGNES (con fallback a placeholder subido a Cloudinary)
 # ================================================================
-def generar_imagen_agnes(prompt, width=1080, height=1350, intentos=5):
-    prompt_limpio = prompt[:800] if prompt else "Cinematic atmospheric photograph, wide shot, vertical 4:5, no text"
-    prompt_limpio = filtrar_prompt_para_agnes(prompt_limpio)
+def generar_imagen_agnes(prompt, width=1080, height=1350, intentos=5, espera_segundos=15):
+    prompt_limpio = filtrar_prompt_para_agnes(prompt[:800])
     url = "https://apihub.agnes-ai.com/v1/images/generations"
     headers = {"Authorization": f"Bearer {AGNES_API_KEY}", "Content-Type": "application/json"}
     negative = (
         "close-up face, portrait, headshot, person filling frame, "
-        "deformed, mutated, bad anatomy, extra limbs, extra fingers, "
-        "asymmetrical eyes, malformed features, uncanny valley, "
+        "deformed face, disfigured, mutated, bad anatomy, extra limbs, "
+        "extra fingers, asymmetrical eyes, malformed features, uncanny valley, "
         "gaunt, emaciated, ugly, grotesque, gore, blood, "
-        "rusty, rusted, weathered, aged, vintage, retro, antique, old-fashioned, "
-        "dilapidated, decrepit, run-down, crumbling, cracked walls, "
-        "sepia, monochrome, black and white, film grain, "
-        "duplicate people, multiple subjects, "
-        "low quality, blurry, oversharpened, over-saturated, text, watermark"
+        "rusty, rusted, oxidized, weathered, aged, vintage, retro, antique, old-fashioned, "
+        "dilapidated, decrepit, run-down, crumbling, cracked walls, peeling paint, "
+        "deteriorated, abandoned ruins, moldy, musty, dusty, cobwebs, "
+        "classic car, old car, vintage car, retro car, horse carriage, "
+        "1950s, 1960s, 1970s, 1980s, 1990s, ancient, medieval, historical, "
+        "sepia tone, monochrome, black and white, film grain, "
+        "duplicate people, cloned faces, multiple subjects, "
+        "low quality, blurry, oversharpened, over-saturated"
     )
     payload = {
         "model": "agnes-image-2.1-flash",
@@ -484,7 +481,7 @@ def generar_imagen_agnes(prompt, width=1080, height=1350, intentos=5):
         "height": height,
         "num_images": 1,
     }
-    for intento in range(1, intentos+1):
+    for intento in range(1, intentos + 1):
         print(f"🎨 Intento {intento}/{intentos} generando imagen...")
         try:
             response = requests.post(url, headers=headers, json=payload, timeout=90)
@@ -495,19 +492,29 @@ def generar_imagen_agnes(prompt, width=1080, height=1350, intentos=5):
                 return image_url
             else:
                 error_msg = response.text[:200]
-                print(f"❌ Error Agnes: {response.status_code} - {error_msg}")
+                print(f"❌ Error en Agnes: {response.status_code} - {error_msg}")
                 if "content_policy_violation" in error_msg:
-                    print("⚠️ Violación de contenido, usando placeholder.")
+                    print("⚠️ Violación de política de contenido.")
                     break
         except Exception as e:
             print(f"❌ Error de conexión: {e}")
         if intento < intentos:
-            time.sleep(5)
-    print("⚠️ No se pudo generar imagen con Agnes. Usando placeholder local.")
-    placeholder_path = generar_placeholder_local("Imagen", (width, height))
-    if placeholder_path:
-        return placeholder_path
-    return None
+            print(f"⏳ Esperando {espera_segundos}s...")
+            time.sleep(espera_segundos)
+    print("⚠️ Agnes falló. Generando placeholder y subiendo a Cloudinary...")
+    texto_placeholder = "Imagen no disponible"
+    if width == 1080 and height == 1920:
+        texto_placeholder = "Reel"
+    elif width == 1080 and height == 1350:
+        texto_placeholder = "Post"
+    placeholder_url = generar_y_subir_placeholder(texto_placeholder, (width, height))
+    if placeholder_url:
+        return placeholder_url
+    else:
+        # Último recurso: usar una URL de placeholder pública (aunque con SSL problems, pero mejor que nada)
+        fallback_url = f"https://via.placeholder.com/{width}x{height}/1a1a1a/ff0000?text={texto_placeholder}"
+        print(f"⚠️ Usando URL fallback: {fallback_url}")
+        return fallback_url
 
 # ================================================================
 # 🎤 GENERAR AUDIO CON GTTS
@@ -515,7 +522,7 @@ def generar_imagen_agnes(prompt, width=1080, height=1350, intentos=5):
 def generar_audio_gtts(texto, index):
     texto_limpio = limpiar_texto_para_audio(texto)
     if len(texto_limpio) < 30:
-        texto_limpio = "Esa noche en la carretera, el silencio era denso."
+        texto_limpio = "Esa noche en la carretera, el silencio era tan denso que podía cortarse con un cuchillo."
     filename = f"narracion_{index}.mp3"
     try:
         tts = gTTS(text=texto_limpio, lang='es', slow=False)
@@ -528,7 +535,7 @@ def generar_audio_gtts(texto, index):
     return None
 
 # ================================================================
-# 🎬 CREAR VIDEO Y SUBIR A CLOUDINARY (CORREGIDO)
+# 🎬 CREAR VIDEO Y SUBIR A CLOUDINARY
 # ================================================================
 def crear_y_subir_video(texto, imagen_url):
     if not CLOUDINARY_DISPONIBLE:
@@ -536,10 +543,10 @@ def crear_y_subir_video(texto, imagen_url):
         return None
 
     print("🎬 Creando video Reel con narración...")
-
-    # 1. Obtener imagen
+    
+    # 1. Descargar imagen (puede ser URL o local)
     img_path = None
-    if imagen_url and isinstance(imagen_url, str) and imagen_url.startswith("http"):
+    if imagen_url and imagen_url.startswith("http"):
         img_data = descargar_imagen_con_retry(imagen_url)
         if img_data:
             img_path = "temp_background.jpg"
@@ -548,16 +555,28 @@ def crear_y_subir_video(texto, imagen_url):
             print("✅ Imagen descargada")
         else:
             print("⚠️ No se pudo descargar la imagen, usando placeholder")
-    elif imagen_url and os.path.exists(imagen_url):
-        img_path = imagen_url
     else:
-        print("⚠️ No hay imagen válida, generando placeholder")
-
+        # Si es un archivo local (p.ej., placeholder generado)
+        if imagen_url and os.path.exists(imagen_url):
+            img_path = imagen_url
+        else:
+            img_path = generar_y_subir_placeholder("Reel", (1080, 1920))
+            if not img_path:
+                print("❌ No se pudo generar placeholder. Abortando.")
+                return None
+            # img_path es URL, no local, entonces descargamos
+            img_data = descargar_imagen_con_retry(img_path)
+            if img_data:
+                img_path = "temp_background.jpg"
+                with open(img_path, "wb") as f:
+                    f.write(img_data)
+            else:
+                print("❌ No se pudo descargar placeholder")
+                return None
+    
     if not img_path or not os.path.exists(img_path):
-        img_path = generar_placeholder_local("Reel", (1080, 1920))
-        if not img_path:
-            print("❌ No se pudo generar placeholder. Abortando.")
-            return None
+        print("❌ No existe archivo de imagen")
+        return None
 
     # 2. Generar audio
     print("🔊 Generando narración...")
@@ -565,14 +584,14 @@ def crear_y_subir_video(texto, imagen_url):
     if not audio_path:
         print("❌ No se pudo generar audio.")
         return None
-
+    
     # 3. Crear clip de imagen
     try:
         clip = ImageClip(img_path).resized((1080, 1920))
     except Exception as e:
         print(f"❌ Error procesando imagen: {e}")
         return None
-
+    
     # 4. Cargar audio
     try:
         audio_clip = AudioFileClip(audio_path)
@@ -581,8 +600,8 @@ def crear_y_subir_video(texto, imagen_url):
     except Exception as e:
         print(f"❌ Error cargando audio: {e}")
         return None
-
-    # 5. Añadir texto superpuesto (sin fuente específica para evitar errores)
+    
+    # 5. Añadir texto superpuesto (con DejaVu-Sans)
     lineas = []
     palabras = texto.split()
     linea_actual = ""
@@ -594,25 +613,24 @@ def crear_y_subir_video(texto, imagen_url):
             linea_actual = palabra + " "
     if linea_actual:
         lineas.append(linea_actual.strip())
-
+    
     try:
-        # Usar None para fuente por defecto (evita error de Arial)
         txt_clip = TextClip(
             text="\n".join(lineas),
             font_size=40,
             color='white',
             stroke_color='black',
             stroke_width=2,
-            font=None,  # <--- Fuente por defecto, evita error
+            font='DejaVu-Sans',
             method='caption',
             size=(1000, 1800),
             text_align='center',
         )
         txt_clip = txt_clip.with_duration(duracion).with_position('center')
     except Exception as e:
-        print(f"⚠️ Error creando texto: {e}")
+        print(f"⚠️ Error creando texto, usando sin texto: {e}")
         txt_clip = None
-
+    
     # 6. Combinar
     clip = clip.with_duration(duracion)
     if txt_clip:
@@ -620,8 +638,8 @@ def crear_y_subir_video(texto, imagen_url):
     else:
         final = clip
     final = final.with_audio(audio_clip)
-
-    # 7. Exportar (SIN 'verbose', solo logger=None)
+    
+    # 7. Exportar (sin verbose)
     output_path = "reel.mp4"
     try:
         final.write_videofile(output_path, fps=24, codec='libx264', logger=None)
@@ -629,7 +647,7 @@ def crear_y_subir_video(texto, imagen_url):
     except Exception as e:
         print(f"❌ Error exportando: {e}")
         return None
-
+    
     # 8. Subir a Cloudinary
     print("📤 Subiendo a Cloudinary...")
     try:
@@ -682,25 +700,25 @@ def main():
     print("🧑 Detectando personaje...")
     personaje = detectar_personaje(historia_base)
 
-    # Imagen para post (4:5)
+    # --- Imagen para post (4:5) ---
     print("🎨 Generando prompt para post...")
     prompt_post = generar_prompt_imagen(historia_base, tema, personaje)
-    if not prompt_post:
-        prompt_post = "Cinematic atmospheric photograph, wide shot of an urban scene, vertical 4:5, no text"
     image_url = generar_imagen_agnes(prompt_post, width=1080, height=1350, intentos=5)
     if not image_url:
-        image_url = generar_placeholder_local("Post", (1080, 1350))
-        if not image_url:
-            image_url = "https://via.placeholder.com/1080x1350/1a1a1a/ff0000?text=Post"
+        print("❌ No se pudo obtener imagen para post. Abortando.")
+        sys.exit(1)
+    print(f"📷 URL post: {image_url[:60]}...")
 
-    # Imagen para Reel (9:16)
+    # --- Imagen para Reel (9:16) ---
     print("🎨 Generando prompt para Reel...")
-    prompt_reel = prompt_post.replace("4:5", "9:16") if prompt_post else "Cinematic atmospheric photograph, wide shot, vertical 9:16, no text"
+    prompt_reel = prompt_post.replace("4:5", "9:16")
     image_reel_url = generar_imagen_agnes(prompt_reel, width=1080, height=1920, intentos=3)
     if not image_reel_url:
-        image_reel_url = generar_placeholder_local("Reel", (1080, 1920))
+        print("❌ No se pudo obtener imagen para Reel. Se usará placeholder genérico.")
+        image_reel_url = generar_y_subir_placeholder("Reel", (1080, 1920))
         if not image_reel_url:
             image_reel_url = "https://via.placeholder.com/1080x1920/1a1a1a/ff0000?text=Reel"
+    print(f"📷 URL Reel: {image_reel_url[:60]}...")
 
     texto_final = agregar_cta_final(historia_base)
     print("✅ CTA y hashtags agregados")
@@ -709,7 +727,7 @@ def main():
     resumen_reel = generar_resumen_reel(historia_base)
     print(f"✅ Resumen: {len(resumen_reel.split())} palabras")
 
-    # Crear video
+    # --- Crear video y subir a Cloudinary ---
     reel_video_url = None
     if CLOUDINARY_DISPONIBLE:
         reel_video_url = crear_y_subir_video(resumen_reel, image_reel_url)
@@ -718,7 +736,7 @@ def main():
     else:
         print("⏭️ Cloudinary no configurado, omitiendo Reel.")
 
-    # Enviar a Make
+    # --- Enviar a Make ---
     payload = {
         "post_message": texto_final,
         "post_image": image_url,
@@ -740,6 +758,7 @@ def main():
             print(f"✅ Relato publicado: {tema}")
         else:
             print(f"❌ Make respondió: {r.status_code}")
+            print(f"   Respuesta: {r.text[:200]}")
     except Exception as e:
         print(f"❌ Error enviando a Make: {e}")
 
