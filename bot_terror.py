@@ -7,6 +7,10 @@ import sys
 import time
 import pytz
 import requests
+import moviepy.editor as mp
+from moviepy.video.fx.all import resize
+from PIL import Image
+import io
 
 # ================================================================
 # CONFIGURACIÓN
@@ -14,6 +18,8 @@ import requests
 DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY")
 MAKE_WEBHOOK_URL_TERROR = os.getenv("MAKE_WEBHOOK_URL_TERROR")
 AGNES_API_KEY = os.getenv("AGNES_API_KEY")
+FACEBOOK_ACCESS_TOKEN = os.getenv("FACEBOOK_ACCESS_TOKEN")
+FACEBOOK_PAGE_ID = os.getenv("FACEBOOK_PAGE_ID")
 
 ESTADO_FILE = "estado_terror.json"
 
@@ -288,7 +294,6 @@ Devuelve SOLO el prompt en inglés, directo, sin explicaciones.
 # 🛡️ FILTRAR PROMPT PARA AGNES (evitar content_policy_violation)
 # ================================================================
 def filtrar_prompt_para_agnes(prompt):
-    # Palabras que activan los filtros de Agnes
     palabras_prohibidas = [
         "gore", "blood", "bleeding", "wound", "injury", "mutilated", "disfigured",
         "corpse", "dead", "death", "dying", "kill", "murder", "assassination",
@@ -304,7 +309,6 @@ def filtrar_prompt_para_agnes(prompt):
         "ghost", "phantom", "apparition", "specter", "horror", "terror",
         "frightening", "scary", "creepy", "sinister", "menacing", "threatening",
         "gloom", "grim", "dread", "fear", "panic", "scream", "shriek", "howl",
-        # Eliminar menciones específicas de violencia
         "attack", "assault", "stabbing", "strangle", "choke", "cut", "slash",
         "corpse", "dead body", "murdered", "vicious"
     ]
@@ -315,7 +319,6 @@ def filtrar_prompt_para_agnes(prompt):
     
     prompt_limpio = re.sub(r'\s+', ' ', prompt_limpio).strip()
     
-    # Si el prompt se queda demasiado corto, añadir un base seguro
     if len(prompt_limpio.split()) < 10:
         prompt_limpio = "Cinematic landscape photograph, atmospheric moonlight, mysterious urban scene at night, no violence, no horror, cinematic mood"
     
@@ -417,7 +420,7 @@ def agregar_cta_final(texto):
     return texto.strip() + cta + hashtags + leyenda_ia
 
 # ================================================================
-# 📝 GENERAR RESUMEN PARA REEL (opcional, 100 palabras)
+# 📝 GENERAR RESUMEN PARA REEL (100 palabras)
 # ================================================================
 def generar_resumen_reel(historia_completa):
     prompt = f"""Resume el siguiente relato de terror en un texto CORTO y ATMOSFÉRICO de EXACTAMENTE 100 palabras, ideal para un Reel de Facebook.
@@ -489,7 +492,7 @@ def generar_imagen_agnes(prompt, width=1080, height=1350, intentos=5, espera_seg
     }
 
     for intento in range(1, intentos + 1):
-        print(f"🎨 Intento {intento}/{intentos} generando imagen vertical moderna...")
+        print(f"🎨 Intento {intento}/{intentos} generando imagen vertical...")
         try:
             response = requests.post(url, headers=headers, json=payload, timeout=90)
             if response.status_code == 200:
@@ -500,7 +503,6 @@ def generar_imagen_agnes(prompt, width=1080, height=1350, intentos=5, espera_seg
             else:
                 error_msg = response.text[:200]
                 print(f"❌ Error en Agnes AI: {response.status_code} - {error_msg}")
-                # Si es error de política de contenido, no reintentar
                 if "content_policy_violation" in error_msg:
                     print("⚠️ Violación de política de contenido. No se reintentará con este prompt.")
                     break
@@ -515,7 +517,96 @@ def generar_imagen_agnes(prompt, width=1080, height=1350, intentos=5, espera_seg
     return None
 
 # ================================================================
-# 📤 ENVIAR A MAKE.COM (con payload extendido para Reel)
+# 🎬 CREAR VIDEO REEL (con moviepy)
+# ================================================================
+def crear_video_reel(texto, imagen_url, output_path="reel.mp4", duracion=6):
+    """
+    Crea un video de 6 segundos con la imagen de fondo y el texto superpuesto.
+    """
+    print("🎬 Creando video Reel...")
+    
+    # 1. Descargar imagen
+    img_response = requests.get(imagen_url)
+    if img_response.status_code != 200:
+        print("❌ Error descargando imagen para el video")
+        return None
+    
+    # Guardar imagen temporal
+    with open("temp_background.jpg", "wb") as f:
+        f.write(img_response.content)
+    
+    # 2. Crear clip de imagen (resize a 1080x1920)
+    try:
+        clip = mp.ImageClip("temp_background.jpg").resize(newsize=(1080, 1920))
+    except Exception as e:
+        print(f"❌ Error procesando imagen: {e}")
+        return None
+    
+    # 3. Añadir texto superpuesto
+    # Dividir texto en líneas (máx 35 caracteres por línea para que quepa)
+    lineas = []
+    palabras = texto.split()
+    linea_actual = ""
+    for palabra in palabras:
+        if len(linea_actual) + len(palabra) + 1 <= 35:
+            linea_actual += (palabra + " ")
+        else:
+            lineas.append(linea_actual.strip())
+            linea_actual = palabra + " "
+    if linea_actual:
+        lineas.append(linea_actual.strip())
+    
+    # Crear el texto con moviepy
+    txt_clip = mp.TextClip(
+        "\n".join(lineas),
+        fontsize=40,
+        color='white',
+        stroke_color='black',
+        stroke_width=2,
+        font='Arial',
+        method='caption',
+        size=(1000, 1800),
+        align='center'
+    )
+    txt_clip = txt_clip.set_duration(duracion).set_position('center')
+    
+    # 4. Combinar
+    clip = clip.set_duration(duracion)
+    final = mp.CompositeVideoClip([clip, txt_clip])
+    
+    # 5. Exportar
+    final.write_videofile(output_path, fps=24, codec='libx264', audio=False, verbose=False, logger=None)
+    print(f"✅ Video guardado en {output_path}")
+    return output_path
+
+# ================================================================
+# 📤 PUBLICAR REEL EN FACEBOOK (usando API Graph)
+# ================================================================
+def publicar_reel_facebook(video_path, message, access_token, page_id):
+    url = f"https://graph.facebook.com/v22.0/{page_id}/videos"
+    try:
+        with open(video_path, 'rb') as f:
+            files = {'source': f}
+            data = {
+                'title': message[:100],
+                'description': message,
+                'access_token': access_token,
+                'published': 'true'
+            }
+            response = requests.post(url, files=files, data=data)
+            if response.status_code == 200:
+                result = response.json()
+                print(f"✅ Reel publicado en Facebook. ID: {result.get('id')}")
+                return result
+            else:
+                print(f"❌ Error publicando Reel: {response.status_code} - {response.text}")
+                return None
+    except Exception as e:
+        print(f"❌ Error: {e}")
+        return None
+
+# ================================================================
+# 📤 ENVIAR A MAKE.COM (solo post y comentario)
 # ================================================================
 def enviar_a_make(payload):
     try:
@@ -531,15 +622,22 @@ def enviar_a_make(payload):
         return False
 
 # ================================================================
-# MAIN
+# 🚀 MAIN
 # ================================================================
 def main():
-    print("👻 Iniciando Bot de Terror (1 relato completo, 300-340 palabras)")
+    print("👻 Iniciando Bot de Terror (con generación de Reel en video)")
     print(f"📅 {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
 
     if not all([DEEPSEEK_API_KEY, MAKE_WEBHOOK_URL_TERROR, AGNES_API_KEY]):
         print("❌ Faltan variables de entorno. Revisa los Secrets de GitHub.")
         sys.exit(1)
+
+    # Verificar token para Facebook (necesario para Reel)
+    if not FACEBOOK_ACCESS_TOKEN or not FACEBOOK_PAGE_ID:
+        print("⚠️ Faltan FACEBOOK_ACCESS_TOKEN o FACEBOOK_PAGE_ID. No se publicará Reel.")
+        publicar_reel = False
+    else:
+        publicar_reel = True
 
     temas = cargar_temas()
     print(f"📚 {len(temas)} temas cargados")
@@ -562,69 +660,83 @@ def main():
     print("🧑 Detectando personaje del relato...")
     personaje = detectar_personaje(historia_base)
 
-    # Generar prompt de imagen
-    print("🎨 Generando prompt de imagen cinematográfico...")
-    prompt_imagen = generar_prompt_imagen(historia_base, tema, personaje)
-    print(f"📝 Prompt de imagen: {prompt_imagen[:150]}...")
-
-    # 📌 FILTRAR prompt para Agnes
-    prompt_imagen_filtrado = filtrar_prompt_para_agnes(prompt_imagen)
-    print(f"📝 Prompt filtrado: {prompt_imagen_filtrado[:150]}...")
-
-    # Generar imagen con el prompt filtrado
-    image_url = generar_imagen_agnes(prompt_imagen_filtrado, width=1080, height=1350, intentos=5, espera_segundos=15)
-
+    # Generar prompt de imagen para post (4:5)
+    print("🎨 Generando prompt de imagen para post...")
+    prompt_imagen_post = generar_prompt_imagen(historia_base, tema, personaje)
+    prompt_imagen_post_filtrado = filtrar_prompt_para_agnes(prompt_imagen_post)
+    image_url = generar_imagen_agnes(prompt_imagen_post_filtrado, width=1080, height=1350, intentos=5)
     if image_url is None:
-        print("⚠️ Falló imagen tras todos los reintentos, usando placeholder")
         image_url = "https://via.placeholder.com/1080x1350/1a1a1a/ff0000?text=Terror"
+
+    # Generar imagen para Reel (9:16)
+    print("🎨 Generando prompt de imagen para Reel (9:16)...")
+    prompt_imagen_reel = prompt_imagen_post.replace("4:5", "9:16").replace("vertical 4:5", "vertical 9:16")
+    prompt_imagen_reel_filtrado = filtrar_prompt_para_agnes(prompt_imagen_reel)
+    image_reel_url = generar_imagen_agnes(prompt_imagen_reel_filtrado, width=1080, height=1920, intentos=3)
+    if image_reel_url is None:
+        image_reel_url = "https://via.placeholder.com/1080x1920/1a1a1a/ff0000?text=Reel"
 
     # Agregar CTA, hashtags y leyenda IA
     texto_final = agregar_cta_final(historia_base)
     print("✅ CTA, hashtags y leyenda de IA agregados")
 
-    # ----- (OPCIONAL) Generar resumen para Reel -----
+    # Generar resumen para Reel
     print("📝 Generando resumen para Reel (100 palabras)...")
     resumen_reel = generar_resumen_reel(historia_base)
-    print(f"✅ Resumen generado: {len(resumen_reel.split())} palabras")
+    print(f"✅ Resumen: {len(resumen_reel.split())} palabras")
 
-    # ----- (OPCIONAL) Generar imagen para Reel (9:16) -----
-    print("🎨 Generando prompt para Reel (9:16)...")
-    prompt_reel = prompt_imagen.replace("4:5", "9:16").replace("vertical 4:5", "vertical 9:16")
-    if "9:16" not in prompt_reel:
-        prompt_reel += ", vertical 9:16, suitable for social media Reel"
-    
-    # Filtrar también para Agnes
-    prompt_reel_filtrado = filtrar_prompt_para_agnes(prompt_reel)
-    imagen_reel = generar_imagen_agnes(prompt_reel_filtrado, width=1080, height=1920, intentos=3, espera_segundos=10)
-    
-    if imagen_reel is None:
-        print("⚠️ Falló imagen Reel, usando placeholder 9:16")
-        imagen_reel = "https://via.placeholder.com/1080x1920/1a1a1a/ff0000?text=Reel"
-
-    # Comentario corto para el post
-    comentario = "😱 El relato completo ya está en el post principal. ¡No te lo pierdas!"
-
-    # 🔥 Enviar a Make con todos los datos
+    # ---------- Publicación en Make (post + comentario) ----------
     payload = {
         "post_message": texto_final,
         "post_image": image_url,
-        "comment_text": comentario,
+        "comment_text": "😱 El relato completo ya está en el post principal. ¡No te lo pierdas!",
         "reel_text": resumen_reel,
-        "reel_image": imagen_reel,
+        "reel_image": image_reel_url,
         "timestamp": datetime.now().isoformat(),
     }
-
     enviado = enviar_a_make(payload)
 
     if enviado:
         if tema not in estado.get("publicados", []):
             estado["publicados"].append(tema)
         estado["ultimo_tema"] = tema
-        print(f"✅ Relato publicado: {tema}")
+        print(f"✅ Relato enviado a Make: {tema}")
     else:
-        print(f"⚠️ Relato NO publicado (error de Make). Tema no registrado.")
+        print(f"⚠️ Error en Make. Tema no registrado.")
 
     guardar_estado(estado)
+
+    # ---------- Esperar 1 minuto para comentario (Make lo maneja) ----------
+    # Pero Make ya tiene sus propios delays, así que no esperamos aquí.
+    # El comentario se publicará en Make después de 1 minuto.
+
+    # ---------- Generar y publicar Reel directamente ----------
+    if publicar_reel:
+        print("🎬 Creando video Reel...")
+        video_path = crear_video_reel(resumen_reel, image_reel_url)
+        if video_path and os.path.exists(video_path):
+            print("📤 Publicando Reel en Facebook...")
+            resultado = publicar_reel_facebook(
+                video_path,
+                f"🌙 {resumen_reel}\n\n#LeyendasMexicanas #Terror #Reel",
+                FACEBOOK_ACCESS_TOKEN,
+                FACEBOOK_PAGE_ID
+            )
+            if resultado:
+                print("✅ Reel publicado exitosamente")
+            else:
+                print("❌ Falló publicación del Reel")
+            # Limpiar archivo temporal
+            try:
+                os.remove(video_path)
+                os.remove("temp_background.jpg")
+            except:
+                pass
+        else:
+            print("❌ No se pudo crear el video Reel")
+    else:
+        print("⏭️ Omisión de Reel (sin token de Facebook)")
+
     print("🎉 Proceso completado")
 
 if __name__ == "__main__":
