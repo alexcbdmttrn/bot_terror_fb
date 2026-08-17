@@ -149,7 +149,7 @@ def limpiar_texto_para_imagen(texto):
     return texto.strip()
 
 # ================================================================
-# 🧹 LIMPIAR TEXTO PARA TTS (CONSERVA Ñ Y ACENTOS)
+# 🧹 LIMPIAR TEXTO PARA TTS
 # ================================================================
 def limpiar_caracteres_para_tts(texto):
     texto = re.sub(r'[^a-zA-ZáéíóúüñÁÉÍÓÚÜÑ0-9\s.,;:!?¿¡\-\'\"]', ' ', texto)
@@ -285,7 +285,7 @@ DIRECTRICES_ENTIDAD = {
 }
 
 # ================================================================
-# 🎨 GENERAR PROMPT DE IMAGEN (CON ÉPOCA Y LÓGICA)
+# 🎨 GENERAR PROMPT DE IMAGEN
 # ================================================================
 def generar_prompt_imagen(historia, tema, personaje):
     tipo = detectar_tipo_entidad(tema)
@@ -583,7 +583,7 @@ def generar_imagen_agnes(prompt, width=1080, height=1350, intentos=5, espera_seg
         return fallback_url
 
 # ================================================================
-# 🎤 GENERAR AUDIO CON EDGE-TTS (con fallback a gTTS)
+# 🎤 GENERAR AUDIO CON EDGE-TTS
 # ================================================================
 def generar_audio_edge_tts(texto, index):
     global CONFIG_VOZ_ACTUAL
@@ -661,13 +661,17 @@ def generar_audio_edge_tts(texto, index):
     return None
 
 # ================================================================
-# 🎥 ZOOM LENTO (Ken Burns Effect) - desde Qwen
+# 🎥 ZOOM LENTO (Ken Burns Effect) – CORREGIDO con .transform() y duración previa
 # ================================================================
 def aplicar_zoom_lento(clip, zoom_final=1.10):
-    """Aplica un zoom in suave del 10% durante la duración del clip."""
+    """
+    Aplica un zoom in suave del 10% durante la duración del clip.
+    Requiere que clip.duration ya tenga un valor (no None).
+    """
     dur = clip.duration
-    if dur <= 0:
+    if dur is None or dur <= 0:
         return clip
+    
     def efecto(get_frame, t):
         frame = get_frame(t)
         factor = 1.0 + (zoom_final - 1.0) * (t / dur)
@@ -679,10 +683,12 @@ def aplicar_zoom_lento(clip, zoom_final=1.10):
         top = (new_h - h) // 2
         img = img.crop((left, top, left + w, top + h))
         return np.array(img)
-    return clip.fl(efecto)
+    
+    # En moviepy 2.x se usa .transform() en lugar de .fl()
+    return clip.transform(efecto)
 
 # ================================================================
-# 🎬 CREAR VIDEO Y SUBIR A CLOUDINARY (CON ZOOM LENTO)
+# 🎬 CREAR VIDEO Y SUBIR A CLOUDINARY (CON ZOOM LENTO CORREGIDO)
 # ================================================================
 def crear_y_subir_video(texto, imagen_url):
     if not CLOUDINARY_DISPONIBLE:
@@ -734,10 +740,6 @@ def crear_y_subir_video(texto, imagen_url):
         print(f"❌ Error procesando imagen: {e}")
         return None
     
-    # Aplicar zoom lento
-    print("🎥 Aplicando zoom lento (Ken Burns)...")
-    clip = aplicar_zoom_lento(clip, zoom_final=1.10)
-    
     try:
         audio_clip = AudioFileClip(audio_path)
         duracion = audio_clip.duration
@@ -745,6 +747,13 @@ def crear_y_subir_video(texto, imagen_url):
     except Exception as e:
         print(f"❌ Error cargando audio: {e}")
         return None
+    
+    # 🔥 FIX 1: Asignar la duración ANTES de aplicar el zoom
+    clip = clip.with_duration(duracion)
+    
+    # 🔥 Ahora aplicar zoom (clip ya tiene duración definida)
+    print("🎥 Aplicando zoom lento (Ken Burns)...")
+    clip = aplicar_zoom_lento(clip, zoom_final=1.10)
     
     # Texto superpuesto (opcional, con fallback)
     lineas = []
@@ -779,12 +788,12 @@ def crear_y_subir_video(texto, imagen_url):
         except Exception as e:
             print(f"⚠️ Fuente {fuente} no disponible: {e}")
     
-    clip = clip.with_duration(duracion)
     if txt_clip:
         final = CompositeVideoClip([clip, txt_clip])
     else:
         print("⚠️ No se puso texto, solo audio")
         final = clip
+    
     final = final.with_audio(audio_clip)
     
     output_path = "reel.mp4"
@@ -900,7 +909,7 @@ def main():
         "post_image": image_url,
         "comment_text": "😱 El relato completo ya está en el post principal. ¡No te lo pierdas!",
         "reel_video_url": reel_video_url,
-        "reel_text": descripcion_reel,  # ← AHORA: título + hashtags + disclaimer IA
+        "reel_text": descripcion_reel,
         "timestamp": datetime.now().isoformat(),
     }
 
