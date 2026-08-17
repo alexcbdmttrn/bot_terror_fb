@@ -40,6 +40,53 @@ else:
     print("⚠️ Cloudinary no configurado. No se podrán subir placeholders ni videos.")
 
 # ================================================================
+# 🎨 PALETAS Y ESTILOS
+# ================================================================
+PALETAS_COLOR = [
+    "Cold cyan blue LED fog, navy blue modern shadows, crisp white moonlight",
+    "Emerald green twilight, modern city haze, muted sage ambient lighting",
+    "Deep violet LED haze, electric purple ambient light, dark magenta shadows",
+    "Slate gray modern tones, freezing ice blue highlight, dim overcast ambient",
+    "Dark teal and deep blue, modern oceanic midnight, cold misty atmosphere",
+    "Stark black and white high contrast, silver moonlight, modern pitch shadows",
+    "Desaturated cold film look, moody cinematic lighting, 8k hyperrealistic",
+    "Neon purple and electric pink, deep violet shadows, cyberpunk modern lights",
+    "Electric yellow and charcoal black, stark contrast, dusty atmospheric haze",
+    "Deep crimson red, pitch black shadow, intense orange emergency LED lights",
+    "Blood red and burnt orange, modern charcoal shadows, hellish glow",
+    "Modern warm amber and dark mahogany, golden LED lighting, deep brown shadows",
+    "Fiery sunset orange, deep purple shadows, modern red highlights",
+    "Toxic lime green and pitch black, eerie chemical modern glow, radioactive haze",
+    "Clean modern daylight, neutral gray ambient, crisp shadows",
+    "Modern LED streetlight glow, cool white highlights, urban night atmosphere",
+]
+PALETA_COLOR_ACTUAL = random.choice(PALETAS_COLOR)
+
+ESTILOS_VISUALES = [
+    "Modern 2026 cinematic photograph, bright contemporary lighting, well-lit scene, sharp focus, current era",
+    "Contemporary thriller photography 2026, soft modern ambient diffusion, bright highlights, present day",
+    "Modern documentary realistic photo 2026, natural crisp skin texture, current fashion and architecture",
+    "8k resolution modern cinematic frame, ultra clear facial details, bright exposure, contemporary era",
+    "Modern fashion photography style 2026, dramatic but well-lit, clean skin, current trends",
+    "Modern noir style 2026, high contrast but well-exposed, contemporary urban atmosphere",
+]
+ESTILO_VISUAL_ACTUAL = random.choice(ESTILOS_VISUALES)
+
+# ================================================================
+# 💀 CTA FINAL
+# ================================================================
+CTAS_FINALES = [
+    "\n\n💀 ¿Te ha pasado algo parecido? Cuéntanos tu historia en comentarios. 👇",
+    "\n\n👻 ¿Conoces una leyenda similar? Compártela en los comentarios. 👇",
+    "\n\n🌙 ¿Qué harías tú en esta situación? Te leemos en comentarios. 👇",
+    "\n\n👁️ ¿Crees que estas historias son reales? Déjanos tu opinión. 👇",
+    "\n\n🔮 ¿Has vivido algo sobrenatural? Cuéntanos tu experiencia. 👇",
+    "\n\n😱 ¿Te atreverías a visitar este lugar? Cuéntanos. 👇",
+    "\n\n🌑 ¿Conoces más historias así? Compártelas en comentarios. 👇",
+    "\n\n💬 Tu historia puede ser la siguiente. Cuéntanos. 👇",
+]
+
+# ================================================================
 # 🖼️ GENERAR PLACEHOLDER LOCAL Y SUBIR A CLOUDINARY
 # ================================================================
 def generar_y_subir_placeholder(texto="Imagen no disponible", size=(1080, 1350)):
@@ -82,7 +129,7 @@ def generar_y_subir_placeholder(texto="Imagen no disponible", size=(1080, 1350))
         return None
 
 # ================================================================
-# FUNCIONES AUXILIARES (cargar_temas, estado, etc.)
+# FUNCIONES AUXILIARES
 # ================================================================
 def cargar_temas():
     try:
