@@ -2,8 +2,8 @@ name: Bot Terror - Publicación
 
 on:
   schedule:
-    - cron: '14 21 * * *'   # ~3:14 PM CDMX (21:14 UTC)
-    - cron: '22 2 * * *'    # ~8:22 PM CDMX (02:22 UTC)
+    - cron: '14 21 * * *'
+    - cron: '22 2 * * *'
   workflow_dispatch:
 
 permissions:
@@ -22,15 +22,16 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Instalar dependencias del sistema (ffmpeg)
+      - name: Instalar dependencias del sistema
         run: |
           sudo apt-get update
           sudo apt-get install -y ffmpeg
 
       - name: Instalar dependencias de Python
         run: |
-          pip install --upgrade pip
-          pip install requests pytz moviepy pillow imageio-ffmpeg cloudinary gTTS
+          pip install --upgrade pip setuptools wheel
+          pip install --force-reinstall moviepy==2.2.1 pillow imageio-ffmpeg
+          pip install requests pytz cloudinary gTTS
 
       - name: Ejecutar bot de terror
         env:
@@ -47,16 +48,12 @@ jobs:
         run: |
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
-
           git add estado_terror.json
-
           if git diff-index --quiet HEAD; then
-            echo "✅ No hay cambios en estado_terror.json"
+            echo "✅ No hay cambios"
             exit 0
           fi
-
           git commit -m "Actualizar estado terror [skip ci]"
-
           for i in 1 2 3 4 5; do
             if git pull --rebase origin main && git push; then
               echo "✅ Push exitoso"
