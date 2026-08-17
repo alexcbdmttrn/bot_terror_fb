@@ -6,6 +6,8 @@ import re
 import sys
 import time
 import requests
+import asyncio
+import edge_tts
 from moviepy import ImageClip, TextClip, CompositeVideoClip, AudioFileClip
 from cloudinary.uploader import upload
 import cloudinary
@@ -38,6 +40,27 @@ if all([CLOUD_NAME, CLOUD_API_KEY, CLOUD_API_SECRET]):
     print("✅ Cloudinary configurado correctamente")
 else:
     print("⚠️ Cloudinary no configurado. No se podrán subir placeholders ni videos.")
+
+# ================================================================
+# 🎤 VOCES NEURALES EDGE-TTS (desde Qwen)
+# ================================================================
+VOCES_DISPONIBLES = [
+    {"voz": "es-MX-JorgeNeural", "velocidad": "+10%", "tono": "-2Hz"},
+    {"voz": "es-MX-DaliaNeural", "velocidad": "+10%", "tono": "+0Hz"},
+    {"voz": "es-ES-AlvaroNeural", "velocidad": "+10%", "tono": "-3Hz"},
+    {"voz": "es-ES-ElviraNeural", "velocidad": "+10%", "tono": "+1Hz"},
+    {"voz": "es-CO-GonzaloNeural", "velocidad": "+10%", "tono": "-1Hz"},
+    {"voz": "es-CO-SalomeNeural", "velocidad": "+10%", "tono": "-1Hz"},
+    {"voz": "es-AR-ElenaNeural", "velocidad": "+10%", "tono": "+2Hz"},
+    {"voz": "es-AR-DiegoNeural", "velocidad": "+10%", "tono": "-2Hz"},
+    {"voz": "es-US-AlonsoNeural", "velocidad": "+10%", "tono": "-1Hz"},
+    {"voz": "es-US-PalomaNeural", "velocidad": "+10%", "tono": "-1Hz"},
+    {"voz": "es-PE-CamilaNeural", "velocidad": "+10%", "tono": "+0Hz"},
+    {"voz": "es-PE-AlexNeural", "velocidad": "+10%", "tono": "-1Hz"},
+    {"voz": "es-CL-LorenzoNeural", "velocidad": "+10%", "tono": "-2Hz"},
+    {"voz": "es-CL-CatalinaNeural", "velocidad": "+10%", "tono": "+1Hz"},
+]
+CONFIG_VOZ_ACTUAL = random.choice(VOCES_DISPONIBLES)
 
 # ================================================================
 # 🖼️ GENERAR PLACEHOLDER LOCAL Y SUBIR A CLOUDINARY
@@ -124,28 +147,30 @@ def limpiar_texto_para_imagen(texto):
     texto = re.sub(r'\*\*([^*]+)\*\*', r'\1', texto)
     return texto.strip()
 
-def limpiar_texto_para_audio(texto):
-    """
-    Limpia el texto para gTTS: elimina caracteres especiales que se pronuncian literalmente
-    (comillas, guiones, puntos suspensivos, etc.) pero mantiene eñes y acentos.
-    """
-    # Eliminar emojis
-    texto = re.sub(r'[\U0001F600-\U0001F64F\U0001F300-\U0001F5FF\U0001F680-\U0001F6FF\U0001F700-\U0001F77F\U0001F780-\U0001F7FF\U0001F800-\U0001F8FF\U0001F900-\U0001F9FF\U0001FA00-\U0001FA6F\U0001FA70-\U0001FAFF\U00002700-\U000027BF\U000024C2-\U0001F251]', '', texto)
-    # Eliminar caracteres de control
-    texto = re.sub(r'[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]', '', texto)
-    # Reemplazar comillas y guiones por espacio o eliminarlos
-    texto = re.sub(r'["\'\`´]', '', texto)  # elimina comillas simples y dobles
-    texto = re.sub(r'[—–\-]', ' ', texto)    # reemplaza guiones por espacio
-    texto = re.sub(r'\.\.\.', ' ', texto)    # reemplaza puntos suspensivos por espacio
-    texto = re.sub(r'[()\[\]{}<>]', '', texto)  # elimina paréntesis, corchetes, etc.
-    texto = re.sub(r'[.,;:!?]', '. ', texto)  # reemplaza puntuación por punto y espacio
-    # Eliminar espacios múltiples
+# ================================================================
+# 🧹 LIMPIAR TEXTO PARA TTS (CONSERVA Ñ Y ACENTOS) - desde Qwen
+# ================================================================
+def limpiar_caracteres_para_tts(texto):
+    """Elimina caracteres especiales pero CONSERVA ñ, acentos y signos básicos."""
+    texto = re.sub(r'[^a-zA-ZáéíóúüñÁÉÍÓÚÜÑ0-9\s.,;:!?¿¡\-\'\"]', ' ', texto)
+    texto = re.sub(r'[\U0001F600-\U0001F64F]', '', texto)  # Emoticonos
+    texto = re.sub(r'[\U0001F300-\U0001F5FF]', '', texto)  # Símbolos
+    texto = re.sub(r'[\U0001F680-\U0001F6FF]', '', texto)  # Transporte
+    texto = re.sub(r'[\U0001F900-\U0001F9FF]', '', texto)  # Símbolos suplementarios
+    texto = re.sub(r'[\U00002700-\U000027BF]', '', texto)  # Dingbats
+    texto = re.sub(r'[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]', '', texto)  # Control chars
     texto = re.sub(r'\s+', ' ', texto)
-    # Asegurar que haya punto al final si es necesario
-    texto = texto.strip()
-    if texto and not texto.endswith('.'):
-        texto += '.'
-    return texto
+    return texto.strip()
+
+def limpiar_texto_para_audio(texto):
+    """Limpieza adicional conservando ñ y acentos."""
+    texto = re.sub(r"imagen_prompt.*", "", texto, flags=re.IGNORECASE)
+    texto = re.sub(r"prompt.*", "", texto, flags=re.IGNORECASE)
+    texto = re.sub(r'[\{\}\[\]]', ' ', texto)
+    texto = texto.replace('"', "'")
+    texto = texto.replace('\n', ' ')
+    texto = re.sub(r'\s+', ' ', texto)
+    return texto.strip()
 
 def descargar_imagen_con_retry(url, intentos=3, timeout=30):
     for i in range(intentos):
@@ -257,7 +282,7 @@ DIRECTRICES_ENTIDAD = {
 }
 
 # ================================================================
-# 🎨 GENERAR PROMPT DE IMAGEN (NEUTRALIZADO)
+# 🎨 GENERAR PROMPT DE IMAGEN
 # ================================================================
 def generar_prompt_imagen(historia, tema, personaje):
     tipo = detectar_tipo_entidad(tema)
@@ -438,7 +463,7 @@ def agregar_cta_final(texto):
     return texto.strip() + cta + hashtags + leyenda_ia
 
 # ================================================================
-# 📝 GENERAR RESUMEN PARA REEL (limpio para audio)
+# 📝 GENERAR RESUMEN PARA REEL
 # ================================================================
 def generar_resumen_reel(historia_completa):
     prompt = f"""Resume el siguiente relato de terror en un texto CORTO y ATMOSFÉRICO de EXACTAMENTE 100 palabras, ideal para un Reel de Facebook.
@@ -478,7 +503,7 @@ Devuelve SOLO el resumen, sin títulos, sin hashtags, sin llamados a la acción.
         return " ".join(palabras[:100]) + "..."
 
 # ================================================================
-# 🖼️ GENERAR IMAGEN CON AGNES (con fallback a placeholder subido a Cloudinary)
+# 🖼️ GENERAR IMAGEN CON AGNES
 # ================================================================
 def generar_imagen_agnes(prompt, width=1080, height=1350, intentos=5, espera_segundos=15):
     prompt_limpio = filtrar_prompt_para_agnes(prompt[:800])
@@ -541,22 +566,86 @@ def generar_imagen_agnes(prompt, width=1080, height=1350, intentos=5, espera_seg
         return fallback_url
 
 # ================================================================
-# 🎤 GENERAR AUDIO CON GTTS (con velocidad más lenta y texto limpio)
+# 🎤 GENERAR AUDIO CON EDGE-TTS (con fallback a gTTS)
 # ================================================================
-def generar_audio_gtts(texto, index):
-    texto_limpio = limpiar_texto_para_audio(texto)
+def generar_audio_edge_tts(texto, index):
+    global CONFIG_VOZ_ACTUAL
+    
+    # Limpieza de texto para TTS (conserva ñ y acentos)
+    texto_limpio = limpiar_caracteres_para_tts(texto)
+    texto_limpio = limpiar_texto_para_audio(texto_limpio)
+    
     if len(texto_limpio) < 30:
-        texto_limpio = "Esa noche en la carretera, el silencio era tan denso que podía cortarse con un cuchillo."
+        print(f"⚠️ Texto corto ({len(texto_limpio)} caracteres). Rellenando...")
+        texto_limpio = "Esa noche el silencio era tan denso que podía cortarse con un cuchillo. El miedo lo envolvía todo."
+    
     filename = f"narracion_{index}.mp3"
+    
+    # Usar la voz neural seleccionada (con +10% velocidad)
+    voz = CONFIG_VOZ_ACTUAL["voz"]
+    rate = CONFIG_VOZ_ACTUAL["velocidad"]  # +10%
+    pitch = CONFIG_VOZ_ACTUAL["tono"]
+    
+    print(f"🎤 Generando narración con voz neural: {voz} (velocidad {rate})")
+    
+    # Intentos con la voz principal
+    for intento in range(3):
+        try:
+            async def _generar():
+                communicate = edge_tts.Communicate(
+                    text=texto_limpio,
+                    voice=voz,
+                    rate=rate,
+                    pitch=pitch
+                )
+                await communicate.save(filename)
+            
+            asyncio.run(_generar())
+            
+            if os.path.exists(filename) and os.path.getsize(filename) > 0:
+                print(f"✅ Audio generado con {voz}")
+                return filename
+        except Exception as e:
+            print(f"❌ Falló intento {intento+1} con {voz}: {e}")
+            if intento < 2:
+                time.sleep(2 * (intento + 1))
+    
+    # Fallback: probar otras voces neurales
+    print("🔄 Probando otras voces neurales como fallback...")
+    for voz_config in VOCES_DISPONIBLES:
+        if voz_config["voz"] == voz:
+            continue
+        voz_fb = voz_config["voz"]
+        rate_fb = voz_config["velocidad"]
+        pitch_fb = voz_config["tono"]
+        try:
+            async def _generar_fb():
+                communicate = edge_tts.Communicate(
+                    text=texto_limpio,
+                    voice=voz_fb,
+                    rate=rate_fb,
+                    pitch=pitch_fb
+                )
+                await communicate.save(filename)
+            asyncio.run(_generar_fb())
+            if os.path.exists(filename) and os.path.getsize(filename) > 0:
+                print(f"✅ Fallback exitoso con {voz_fb}")
+                CONFIG_VOZ_ACTUAL = voz_config
+                return filename
+        except Exception as e:
+            print(f"❌ Fallback con {voz_fb} falló: {e}")
+    
+    # Último recurso: gTTS
+    print("⚠️ Todas las voces neurales fallaron. Usando gTTS como respaldo...")
     try:
-        # slow=True hace que hable más despacio (aproximadamente un 20-30% más lento)
         tts = gTTS(text=texto_limpio, lang='es', slow=True)
         tts.save(filename)
         if os.path.exists(filename) and os.path.getsize(filename) > 0:
-            print(f"🔊 Audio generado con gTTS (velocidad lenta)")
+            print(f"✅ Audio generado con gTTS (fallback)")
             return filename
     except Exception as e:
-        print(f"❌ gTTS falló: {e}")
+        print(f"❌ gTTS también falló: {e}")
+    
     return None
 
 # ================================================================
@@ -601,9 +690,9 @@ def crear_y_subir_video(texto, imagen_url):
         print("❌ No existe archivo de imagen")
         return None
 
-    # 2. Generar audio
-    print("🔊 Generando narración...")
-    audio_path = generar_audio_gtts(texto, "reel")
+    # 2. Generar audio con edge-tts
+    print("🔊 Generando narración con edge-tts...")
+    audio_path = generar_audio_edge_tts(texto, "reel")
     if not audio_path:
         print("❌ No se pudo generar audio.")
         return None
@@ -624,7 +713,7 @@ def crear_y_subir_video(texto, imagen_url):
         print(f"❌ Error cargando audio: {e}")
         return None
     
-    # 5. Añadir texto superpuesto (con fallback a Arial o sin texto)
+    # 5. Añadir texto superpuesto (con fallback)
     lineas = []
     palabras = texto.split()
     linea_actual = ""
@@ -637,23 +726,8 @@ def crear_y_subir_video(texto, imagen_url):
     if linea_actual:
         lineas.append(linea_actual.strip())
     
-    try:
-        # Probar con Arial primero, que suele estar disponible
-        txt_clip = TextClip(
-            text="\n".join(lineas),
-            font_size=40,
-            color='white',
-            stroke_color='black',
-            stroke_width=2,
-            font='Arial',
-            method='caption',
-            size=(1000, 1800),
-            text_align='center',
-        )
-        txt_clip = txt_clip.with_duration(duracion).with_position('center')
-        print("✅ Texto superpuesto con Arial")
-    except Exception as e:
-        print(f"⚠️ Error creando texto con Arial, intentando DejaVu-Sans...")
+    txt_clip = None
+    for fuente in ['Arial', 'DejaVu-Sans']:
         try:
             txt_clip = TextClip(
                 text="\n".join(lineas),
@@ -661,26 +735,27 @@ def crear_y_subir_video(texto, imagen_url):
                 color='white',
                 stroke_color='black',
                 stroke_width=2,
-                font='DejaVu-Sans',
+                font=fuente,
                 method='caption',
                 size=(1000, 1800),
                 text_align='center',
             )
             txt_clip = txt_clip.with_duration(duracion).with_position('center')
-            print("✅ Texto superpuesto con DejaVu-Sans")
-        except Exception as e2:
-            print(f"⚠️ Error creando texto, usando sin texto: {e2}")
-            txt_clip = None
+            print(f"✅ Texto superpuesto con {fuente}")
+            break
+        except Exception as e:
+            print(f"⚠️ Fuente {fuente} no disponible: {e}")
     
     # 6. Combinar
     clip = clip.with_duration(duracion)
     if txt_clip:
         final = CompositeVideoClip([clip, txt_clip])
     else:
+        print("⚠️ No se puso texto, solo audio")
         final = clip
     final = final.with_audio(audio_clip)
     
-    # 7. Exportar (sin verbose)
+    # 7. Exportar
     output_path = "reel.mp4"
     try:
         final.write_videofile(output_path, fps=24, codec='libx264', logger=None)
@@ -716,7 +791,8 @@ def crear_y_subir_video(texto, imagen_url):
 # MAIN
 # ================================================================
 def main():
-    print("👻 Iniciando Bot de Terror (gTTS lento → Cloudinary → Make)")
+    print(f"🎤 Voz inicial: {CONFIG_VOZ_ACTUAL['voz']} ({CONFIG_VOZ_ACTUAL['velocidad']})")
+    print("👻 Iniciando Bot de Terror (edge-tts + Cloudinary + Make)")
     print(f"📅 {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
 
     if not all([DEEPSEEK_API_KEY, MAKE_WEBHOOK_URL_TERROR, AGNES_API_KEY]):
