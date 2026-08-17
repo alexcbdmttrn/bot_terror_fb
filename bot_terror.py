@@ -42,7 +42,7 @@ else:
     print("⚠️ Cloudinary no configurado. No se podrán subir placeholders ni videos.")
 
 # ================================================================
-# 🎤 VOCES NEURALES EDGE-TTS (desde Qwen)
+# 🎤 VOCES NEURALES EDGE-TTS
 # ================================================================
 VOCES_DISPONIBLES = [
     {"voz": "es-MX-JorgeNeural", "velocidad": "+10%", "tono": "-2Hz"},
@@ -148,22 +148,20 @@ def limpiar_texto_para_imagen(texto):
     return texto.strip()
 
 # ================================================================
-# 🧹 LIMPIAR TEXTO PARA TTS (CONSERVA Ñ Y ACENTOS) - desde Qwen
+# 🧹 LIMPIAR TEXTO PARA TTS (CONSERVA Ñ Y ACENTOS)
 # ================================================================
 def limpiar_caracteres_para_tts(texto):
-    """Elimina caracteres especiales pero CONSERVA ñ, acentos y signos básicos."""
     texto = re.sub(r'[^a-zA-ZáéíóúüñÁÉÍÓÚÜÑ0-9\s.,;:!?¿¡\-\'\"]', ' ', texto)
-    texto = re.sub(r'[\U0001F600-\U0001F64F]', '', texto)  # Emoticonos
-    texto = re.sub(r'[\U0001F300-\U0001F5FF]', '', texto)  # Símbolos
-    texto = re.sub(r'[\U0001F680-\U0001F6FF]', '', texto)  # Transporte
-    texto = re.sub(r'[\U0001F900-\U0001F9FF]', '', texto)  # Símbolos suplementarios
-    texto = re.sub(r'[\U00002700-\U000027BF]', '', texto)  # Dingbats
-    texto = re.sub(r'[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]', '', texto)  # Control chars
+    texto = re.sub(r'[\U0001F600-\U0001F64F]', '', texto)
+    texto = re.sub(r'[\U0001F300-\U0001F5FF]', '', texto)
+    texto = re.sub(r'[\U0001F680-\U0001F6FF]', '', texto)
+    texto = re.sub(r'[\U0001F900-\U0001F9FF]', '', texto)
+    texto = re.sub(r'[\U00002700-\U000027BF]', '', texto)
+    texto = re.sub(r'[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]', '', texto)
     texto = re.sub(r'\s+', ' ', texto)
     return texto.strip()
 
 def limpiar_texto_para_audio(texto):
-    """Limpieza adicional conservando ñ y acentos."""
     texto = re.sub(r"imagen_prompt.*", "", texto, flags=re.IGNORECASE)
     texto = re.sub(r"prompt.*", "", texto, flags=re.IGNORECASE)
     texto = re.sub(r'[\{\}\[\]]', ' ', texto)
@@ -198,26 +196,29 @@ CTAS_FINALES = [
 ]
 
 # ================================================================
-# 🧑 DETECTAR PERSONAJE
+# 🧑 DETECTAR PERSONAJE Y ÉPOCA (NUEVO: Extrae el año)
 # ================================================================
-def detectar_personaje(texto_historia):
-    prompt = f"""Analiza el siguiente relato en primera persona y extrae las características físicas del protagonista.
+def detectar_personaje_y_epoca(texto_historia):
+    prompt = f"""Analiza el siguiente relato en primera persona y extrae las características físicas del protagonista y la época/año en que ocurre.
 
 REGLAS:
 - Si el texto menciona explícitamente el género (hombre/mujer), úsalo. Si no, infiere por el contexto.
 - Si menciona edad o época, calcula la edad actual aproximada.
 - Si menciona oficio o vestimenta, inclúyelo.
+- Identifica el AÑO o ÉPOCA en que sucede la historia. Si no se menciona, infiere uno lógico basado en el contexto (ej. si hay smartphones, es 2015+).
 - Devuelve SOLO un JSON válido con estos campos:
   - "genero": "hombre" o "mujer"
   - "edad_aprox": número
   - "ocupacion": breve descripción
   - "descripcion_breve": 1 línea en inglés describiendo al personaje
+  - "anio": número de 4 dígitos (ej. 1985, 2004, 2023)
 
 REGLA CRÍTICA: Si no hay información suficiente, devuelve valores por defecto:
 - genero: "hombre"
 - edad_aprox: 35
 - ocupacion: "persona común"
 - descripcion_breve: "a 35-year-old Mexican person, contemporary clothing"
+- anio: 2015
 
 RELATO:
 \"\"\"
@@ -244,7 +245,7 @@ Devuelve SOLO el JSON, sin explicaciones, sin markdown.
         respuesta = re.sub(r"```\s*", "", respuesta)
         
         data = json.loads(respuesta, strict=False)
-        print(f"🧑 Personaje detectado: {data.get('genero', '?')}, {data.get('edad_aprox', '?')} años, {data.get('ocupacion', '?')}")
+        print(f"🧑 Personaje detectado: {data.get('genero', '?')}, {data.get('edad_aprox', '?')} años | 🗓️ Época: {data.get('anio', '?')}")
         return data
     except Exception as e:
         print(f"⚠️ Error detectando personaje: {e}. Usando valores por defecto.")
@@ -252,7 +253,8 @@ Devuelve SOLO el JSON, sin explicaciones, sin markdown.
             "genero": "hombre",
             "edad_aprox": 35,
             "ocupacion": "persona común",
-            "descripcion_breve": "a 35-year-old Mexican person, contemporary clothing"
+            "descripcion_breve": "a 35-year-old Mexican person, contemporary clothing",
+            "anio": 2015
         }
 
 # ================================================================
@@ -282,7 +284,7 @@ DIRECTRICES_ENTIDAD = {
 }
 
 # ================================================================
-# 🎨 GENERAR PROMPT DE IMAGEN
+# 🎨 GENERAR PROMPT DE IMAGEN (CON ÉPOCA Y LÓGICA)
 # ================================================================
 def generar_prompt_imagen(historia, tema, personaje):
     tipo = detectar_tipo_entidad(tema)
@@ -290,6 +292,20 @@ def generar_prompt_imagen(historia, tema, personaje):
     
     genero = personaje.get("genero", "hombre")
     edad = personaje.get("edad_aprox", 35)
+    anio = personaje.get("anio", 2015)
+    
+    # 🆕 Construir modificador de época dinámico
+    if anio >= 2015:
+        epoca_mod = "present day contemporary era (2020s), modern vehicles, modern architecture, smartphones, LED lighting"
+    elif anio >= 2000:
+        epoca_mod = f"early 2000s era (year {anio}), 2000s cars, CRT TVs, flip phones, no smartphones"
+    elif anio >= 1990:
+        epoca_mod = f"1990s era (year {anio}), 90s cars, analog tech, 90s fashion, no modern devices"
+    elif anio >= 1980:
+        epoca_mod = f"1980s era (year {anio}), 80s cars, vintage clothing, older buildings, analog technology"
+    else:
+        epoca_mod = f"past era (year {anio}), classic cars, period clothing, aged architecture, no modern devices"
+
     if genero == "mujer":
         sujeto_humano = f"a {edad}-year-old Mexican woman"
     else:
@@ -304,20 +320,20 @@ HISTORIA:
 \"\"\"
 TEMA: {tema}
 PERSONAJE HUMANO: {sujeto_humano}
+ÉPOCA EXACTA: {epoca_mod}
 
 🎬 ESTILO VISUAL:
 - Cinematic film still, dramatic volumetric lighting, atmospheric fog
-- High contrast chiaroscuro: deep black shadows + ONE dominant accent glow (crimson red, electric cyan, amber or toxic green)
+- High contrast chiaroscuro: deep black shadows + ONE dominant accent glow
 - Moonlight beams, god rays, anamorphic lens feel, shallow depth of field
-- Saturated but elegant cinematic color grading
 
-📐 COMPOSICIÓN:
+📐 COMPOSICIÓN Y LÓGICA NARRATIVA:
 - PLANO: wide o medium-wide shot, vertical 4:5
-- EL ENTORNO ES EL PROTAGONISTA: arquitectura, callejones, bosques, cementerios, carreteras
-- HUMANO: {sujeto_humano} — de espaldas o a distancia, ocupando MÁXIMO 20-25% del encuadre
-- EXACTAMENTE UNA figura humana
+- EL ENTORNO ES EL PROTAGONISTA: arquitectura, callejones, bosques, carreteras, objetos de la época.
+- HUMANO: {sujeto_humano} — de espaldas o a distancia, ocupando MÁXIMO 20% del encuadre.
+- EXACTAMENTE UNA figura humana. La imagen debe reflejar la lógica del relato y la época específica.
 
-🚫 PROHIBIDO: gore, sangre, heridas, mutilaciones, caras en primer plano, texto, watermarks, logos, multitudes, personas duplicadas, clones, gemelos
+🚫 PROHIBIDO: gore, sangre, heridas, caras en primer plano, texto, watermarks, multitudes, personas duplicadas, clones, gemelos, dobles caras, dos cabezas.
 
 Devuelve SOLO el prompt en inglés, directo, sin explicaciones.
 """
@@ -340,7 +356,7 @@ Devuelve SOLO el prompt en inglés, directo, sin explicaciones.
         return f"Vertical 4:5 cinematic film still, dark atmospheric scene with volumetric fog, wide shot, no text"
 
 # ================================================================
-# 🛡️ FILTRAR PROMPT PARA AGNES
+# 🛡️ FILTRAR PROMPT PARA AGNES (Evitar bloqueos por palabras "horror")
 # ================================================================
 def filtrar_prompt_para_agnes(prompt):
     palabras_prohibidas = [
@@ -359,7 +375,7 @@ def filtrar_prompt_para_agnes(prompt):
         "frightening", "scary", "creepy", "sinister", "menacing", "threatening",
         "gloom", "grim", "dread", "fear", "panic", "scream", "shriek", "howl",
         "attack", "assault", "stabbing", "strangle", "choke", "cut", "slash",
-        "corpse", "dead body", "murdered", "vicious", "haunted", "spooky",
+        "dead body", "murdered", "vicious", "haunted", "spooky",
         "paranormal", "supernatural", "eerie", "uncanny", "macabre", "ghastly"
     ]
     prompt_limpio = prompt
@@ -503,25 +519,29 @@ Devuelve SOLO el resumen, sin títulos, sin hashtags, sin llamados a la acción.
         return " ".join(palabras[:100]) + "..."
 
 # ================================================================
-# 🖼️ GENERAR IMAGEN CON AGNES
+# 🖼️ GENERAR IMAGEN CON AGNES (Negative Prompt Corregido)
 # ================================================================
 def generar_imagen_agnes(prompt, width=1080, height=1350, intentos=5, espera_segundos=15):
     prompt_limpio = filtrar_prompt_para_agnes(prompt[:800])
     url = "https://apihub.agnes-ai.com/v1/images/generations"
     headers = {"Authorization": f"Bearer {AGNES_API_KEY}", "Content-Type": "application/json"}
+    
+    # 🆕 Negative prompt corregido: Se eliminaron prohibiciones de épocas pasadas (1980s, vintage, old car)
+    # para permitir que la IA genere la época histórica correcta si la historia lo exige.
+    # Se agregaron bloqueos agresivos contra clones y dobles caras.
     negative = (
         "close-up face, portrait, headshot, person filling frame, "
         "deformed face, disfigured, mutated, bad anatomy, extra limbs, "
         "extra fingers, asymmetrical eyes, malformed features, uncanny valley, "
         "gaunt, emaciated, ugly, grotesque, gore, blood, "
-        "rusty, rusted, oxidized, weathered, aged, vintage, retro, antique, old-fashioned, "
         "dilapidated, decrepit, run-down, crumbling, cracked walls, peeling paint, "
-        "deteriorated, abandoned ruins, moldy, musty, dusty, cobwebs, "
-        "classic car, old car, vintage car, retro car, horse carriage, "
-        "1950s, 1960s, 1970s, 1980s, 1990s, ancient, medieval, historical, "
+        "moldy, musty, dusty, cobwebs, "
         "sepia tone, monochrome, black and white, film grain, "
         "duplicate people, cloned faces, multiple subjects, "
-        "low quality, blurry, oversharpened, over-saturated"
+        "dual face, split face, two faces, double face, mirror face, two heads, "
+        "cloned face, duplicate person, twin, twins, doppelganger, siamese, conjoined, "
+        "low quality, blurry, oversharpened, over-saturated, "
+        "text, letters, words, captions, subtitles, titles, watermarks, logos"
     )
     payload = {
         "model": "agnes-image-2.1-flash",
@@ -571,7 +591,6 @@ def generar_imagen_agnes(prompt, width=1080, height=1350, intentos=5, espera_seg
 def generar_audio_edge_tts(texto, index):
     global CONFIG_VOZ_ACTUAL
     
-    # Limpieza de texto para TTS (conserva ñ y acentos)
     texto_limpio = limpiar_caracteres_para_tts(texto)
     texto_limpio = limpiar_texto_para_audio(texto_limpio)
     
@@ -581,14 +600,12 @@ def generar_audio_edge_tts(texto, index):
     
     filename = f"narracion_{index}.mp3"
     
-    # Usar la voz neural seleccionada (con +10% velocidad)
     voz = CONFIG_VOZ_ACTUAL["voz"]
-    rate = CONFIG_VOZ_ACTUAL["velocidad"]  # +10%
+    rate = CONFIG_VOZ_ACTUAL["velocidad"]
     pitch = CONFIG_VOZ_ACTUAL["tono"]
     
     print(f"🎤 Generando narración con voz neural: {voz} (velocidad {rate})")
     
-    # Intentos con la voz principal
     for intento in range(3):
         try:
             async def _generar():
@@ -610,7 +627,6 @@ def generar_audio_edge_tts(texto, index):
             if intento < 2:
                 time.sleep(2 * (intento + 1))
     
-    # Fallback: probar otras voces neurales
     print("🔄 Probando otras voces neurales como fallback...")
     for voz_config in VOCES_DISPONIBLES:
         if voz_config["voz"] == voz:
@@ -635,7 +651,6 @@ def generar_audio_edge_tts(texto, index):
         except Exception as e:
             print(f"❌ Fallback con {voz_fb} falló: {e}")
     
-    # Último recurso: gTTS
     print("⚠️ Todas las voces neurales fallaron. Usando gTTS como respaldo...")
     try:
         tts = gTTS(text=texto_limpio, lang='es', slow=True)
@@ -658,7 +673,6 @@ def crear_y_subir_video(texto, imagen_url):
 
     print("🎬 Creando video Reel con narración...")
     
-    # 1. Descargar imagen
     img_path = None
     if imagen_url and imagen_url.startswith("http"):
         img_data = descargar_imagen_con_retry(imagen_url)
@@ -690,21 +704,18 @@ def crear_y_subir_video(texto, imagen_url):
         print("❌ No existe archivo de imagen")
         return None
 
-    # 2. Generar audio con edge-tts
     print("🔊 Generando narración con edge-tts...")
     audio_path = generar_audio_edge_tts(texto, "reel")
     if not audio_path:
         print("❌ No se pudo generar audio.")
         return None
     
-    # 3. Crear clip de imagen
     try:
         clip = ImageClip(img_path).resized((1080, 1920))
     except Exception as e:
         print(f"❌ Error procesando imagen: {e}")
         return None
     
-    # 4. Cargar audio
     try:
         audio_clip = AudioFileClip(audio_path)
         duracion = audio_clip.duration
@@ -713,7 +724,6 @@ def crear_y_subir_video(texto, imagen_url):
         print(f"❌ Error cargando audio: {e}")
         return None
     
-    # 5. Añadir texto superpuesto (con fallback)
     lineas = []
     palabras = texto.split()
     linea_actual = ""
@@ -746,7 +756,6 @@ def crear_y_subir_video(texto, imagen_url):
         except Exception as e:
             print(f"⚠️ Fuente {fuente} no disponible: {e}")
     
-    # 6. Combinar
     clip = clip.with_duration(duracion)
     if txt_clip:
         final = CompositeVideoClip([clip, txt_clip])
@@ -755,7 +764,6 @@ def crear_y_subir_video(texto, imagen_url):
         final = clip
     final = final.with_audio(audio_clip)
     
-    # 7. Exportar
     output_path = "reel.mp4"
     try:
         final.write_videofile(output_path, fps=24, codec='libx264', logger=None)
@@ -764,7 +772,6 @@ def crear_y_subir_video(texto, imagen_url):
         print(f"❌ Error exportando: {e}")
         return None
     
-    # 8. Subir a Cloudinary
     print("📤 Subiendo a Cloudinary...")
     try:
         result = upload(
@@ -814,8 +821,8 @@ def main():
 
     print(f"✅ Historia generada ({len(historia_base.split())} palabras)")
 
-    print("🧑 Detectando personaje...")
-    personaje = detectar_personaje(historia_base)
+    print("🧑 Detectando personaje y época...")
+    personaje = detectar_personaje_y_epoca(historia_base)
 
     # --- Imagen para post (4:5) ---
     print("🎨 Generando prompt para post...")
