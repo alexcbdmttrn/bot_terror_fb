@@ -9,7 +9,8 @@ import requests
 import moviepy.editor as mp
 from cloudinary.uploader import upload
 import cloudinary
-from gtts import gTTS
+import edge_tts
+import asyncio
 
 # ================================================================
 # CONFIGURACIÓN
@@ -90,6 +91,16 @@ CTAS_FINALES = [
 ]
 
 # ================================================================
+# 🎤 VOCES EDGE-TTS (desde el script de shorts)
+# ================================================================
+VOCES_DISPONIBLES = [
+    {"voz": "es-MX-JorgeNeural", "velocidad": "+10%", "tono": "-2Hz"},
+    {"voz": "es-ES-AlvaroNeural", "velocidad": "+10%", "tono": "-3Hz"},
+    {"voz": "es-MX-ManuelNeural", "velocidad": "+10%", "tono": "-1Hz"},
+    {"voz": "es-CL-LorenzoNeural", "velocidad": "+10%", "tono": "-2Hz"},
+]
+
+# ================================================================
 # CARGAR TEMAS
 # ================================================================
 def cargar_temas():
@@ -155,6 +166,18 @@ def limpiar_texto_para_imagen(texto):
     texto = re.sub(r'[\U0001F600-\U0001F64F\U0001F300-\U0001F5FF\U0001F680-\U0001F6FF\U0001F700-\U0001F77F\U0001F780-\U0001F7FF\U0001F800-\U0001F8FF\U0001F900-\U0001F9FF\U0001FA00-\U0001FA6F\U0001FA70-\U0001FAFF\U00002700-\U000027BF\U000024C2-\U0001F251]', '', texto)
     texto = re.sub(r'#\w+', '', texto)
     texto = re.sub(r'\*\*([^*]+)\*\*', r'\1', texto)
+    return texto.strip()
+
+# ================================================================
+# 🧹 LIMPIAR TEXTO PARA AUDIO
+# ================================================================
+def limpiar_texto_para_audio(texto):
+    """Elimina caracteres que pueden causar problemas en TTS."""
+    texto = re.sub(r'[\U0001F600-\U0001F64F\U0001F300-\U0001F5FF\U0001F680-\U0001F6FF\U0001F700-\U0001F77F\U0001F780-\U0001F7FF\U0001F800-\U0001F8FF\U0001F900-\U0001F9FF\U0001FA00-\U0001FA6F\U0001FA70-\U0001FAFF\U00002700-\U000027BF\U000024C2-\U0001F251]', '', texto)
+    texto = re.sub(r'[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]', '', texto)
+    texto = texto.replace('"', "'")
+    texto = texto.replace('\n', ' ')
+    texto = re.sub(r'\s+', ' ', texto)
     return texto.strip()
 
 # ================================================================
@@ -533,19 +556,72 @@ def generar_imagen_agnes(prompt, width=1080, height=1350, intentos=5, espera_seg
     return None
 
 # ================================================================
+# 🎤 GENERAR AUDIO CON EDGE-TTS (con fallback a gTTS)
+# ================================================================
+def generar_audio_edge_tts(texto, index, intentos_por_voz=2):
+    """
+    Genera un archivo de audio usando edge_tts.
+    Prueba las voces en orden hasta que una funcione.
+    Si todas fallan, usa gTTS como fallback final.
+    """
+    texto_limpio = limpiar_texto_para_audio(texto)
+    if len(texto_limpio) < 30:
+        texto_limpio = "Esa noche en la carretera, el silencio era tan denso que podía cortarse con un cuchillo."
+
+    filename = f"narracion_{index}.mp3"
+
+    # Probar voces edge-tts
+    for voz_config in VOCES_DISPONIBLES:
+        voz = voz_config["voz"]
+        rate = voz_config["velocidad"]
+        pitch = voz_config["tono"]
+
+        for intento in range(intentos_por_voz):
+            async def _generar():
+                communicate = edge_tts.Communicate(texto_limpio, voz, rate=rate, pitch=pitch)
+                await communicate.save(filename)
+            try:
+                asyncio.run(_generar())
+                if os.path.exists(filename) and os.path.getsize(filename) > 0:
+                    print(f"🔊 Audio generado con {voz} (intento {intento+1})")
+                    return filename
+            except Exception as e:
+                print(f"❌ Falló con {voz}: {e}")
+                if intento < intentos_por_voz - 1:
+                    time.sleep(2)
+                if os.path.exists(filename):
+                    try:
+                        os.remove(filename)
+                    except:
+                        pass
+        # Si falló esta voz, pasar a la siguiente
+
+    # Si todas las edge-tts fallaron, usar gTTS como fallback
+    print("⚠️ Todas las voces edge-tts fallaron. Usando gTTS como respaldo...")
+    try:
+        from gtts import gTTS
+        tts = gTTS(text=texto_limpio, lang='es', slow=False)
+        tts.save(filename)
+        if os.path.exists(filename) and os.path.getsize(filename) > 0:
+            print(f"🔊 Audio generado con gTTS (fallback)")
+            return filename
+    except Exception as e:
+        print(f"❌ gTTS también falló: {e}")
+        return None
+
+# ================================================================
 # 🎬 CREAR VIDEO CON NARRACIÓN Y SUBIR A CLOUDINARY
 # ================================================================
 def crear_y_subir_video(texto, imagen_url):
     """
-    Crea un video de 6 segundos con imagen, texto superpuesto y NARRACIÓN DE VOZ (gTTS),
+    Crea un video con imagen, texto superpuesto y NARRACIÓN DE VOZ (edge-tts primero, gTTS fallback),
     y lo sube a Cloudinary.
-    Retorna la URL pública del video.
     """
     if not CLOUDINARY_DISPONIBLE:
         print("❌ Cloudinary no configurado. No se puede subir el video.")
         return None
 
-    print("🎬 Creando video Reel con narración de voz...")
+    print("🎬 Creando video Reel con narración de voz (edge-tts)...")
     
     # 1. Descargar imagen
     img_response = requests.get(imagen_url)
@@ -556,15 +632,11 @@ def crear_y_subir_video(texto, imagen_url):
     with open("temp_background.jpg", "wb") as f:
         f.write(img_response.content)
     
-    # 2. Generar audio con gTTS (voz en español)
+    # 2. Generar audio con edge-tts (con fallback a gTTS)
     print("🔊 Generando narración con voz...")
-    try:
-        tts = gTTS(text=texto, lang='es', slow=False)
-        audio_path = "narracion.mp3"
-        tts.save(audio_path)
-        print(f"✅ Audio guardado en {audio_path}")
-    except Exception as e:
-        print(f"❌ Error generando audio: {e}")
+    audio_path = generar_audio_edge_tts(texto, "reel")
+    if not audio_path:
+        print("❌ No se pudo generar audio. Abortando video.")
         return None
     
     # 3. Crear clip de imagen (resize a 1080x1920)
@@ -583,7 +655,7 @@ def crear_y_subir_video(texto, imagen_url):
         print(f"❌ Error cargando audio: {e}")
         return None
     
-    # 5. Añadir texto superpuesto (opcional, para que se vea el resumen)
+    # 5. Añadir texto superpuesto (para que se vea el resumen)
     lineas = []
     palabras = texto.split()
     linea_actual = ""
@@ -650,7 +722,8 @@ def crear_y_subir_video(texto, imagen_url):
         try:
             os.remove(output_path)
             os.remove("temp_background.jpg")
-            os.remove(audio_path)
+            if audio_path and os.path.exists(audio_path):
+                os.remove(audio_path)
         except:
             pass
 
@@ -658,7 +731,7 @@ def crear_y_subir_video(texto, imagen_url):
 # MAIN
 # ================================================================
 def main():
-    print("👻 Iniciando Bot de Terror (genera video con NARRACIÓN → Cloudinary → Make)")
+    print("👻 Iniciando Bot de Terror (con narración edge-tts → Cloudinary → Make)")
     print(f"📅 {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
 
     # Validar variables de entorno
@@ -730,8 +803,8 @@ def main():
         "post_message": texto_final,
         "post_image": image_url,
         "comment_text": "😱 El relato completo ya está en el post principal. ¡No te lo pierdas!",
-        "reel_video_url": reel_video_url,  # URL del video en Cloudinary (o None)
-        "reel_text": resumen_reel,         # Texto para el Reel (por si acaso)
+        "reel_video_url": reel_video_url,
+        "reel_text": resumen_reel,
         "timestamp": datetime.now().isoformat(),
     }
 
