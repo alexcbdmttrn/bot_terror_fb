@@ -30,7 +30,7 @@ jobs:
       - name: Instalar dependencias de Python
         run: |
           pip install --upgrade pip
-          pip install requests pytz moviepy pillow imageio-ffmpeg cloudinary
+          pip install requests pytz moviepy pillow imageio-ffmpeg cloudinary gTTS
 
       - name: Ejecutar bot de terror
         env:
