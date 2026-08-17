@@ -5,12 +5,10 @@ import random
 import re
 import sys
 import time
-import pytz
 import requests
 import moviepy.editor as mp
-from moviepy.video.fx.all import resize
-from PIL import Image
-import io
+from cloudinary.uploader import upload
+import cloudinary
 
 # ================================================================
 # CONFIGURACIÓN
@@ -18,10 +16,27 @@ import io
 DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY")
 MAKE_WEBHOOK_URL_TERROR = os.getenv("MAKE_WEBHOOK_URL_TERROR")
 AGNES_API_KEY = os.getenv("AGNES_API_KEY")
-FACEBOOK_ACCESS_TOKEN = os.getenv("FACEBOOK_ACCESS_TOKEN")
-FACEBOOK_PAGE_ID = os.getenv("FACEBOOK_PAGE_ID")
+
+# Cloudinary
+CLOUD_NAME = os.getenv("CLOUDINARY_CLOUD_NAME")
+CLOUD_API_KEY = os.getenv("CLOUDINARY_API_KEY")
+CLOUD_API_SECRET = os.getenv("CLOUDINARY_API_SECRET")
 
 ESTADO_FILE = "estado_terror.json"
+
+# ================================================================
+# CONFIGURAR CLOUDINARY
+# ================================================================
+if all([CLOUD_NAME, CLOUD_API_KEY, CLOUD_API_SECRET]):
+    cloudinary.config(
+        cloud_name=CLOUD_NAME,
+        api_key=CLOUD_API_KEY,
+        api_secret=CLOUD_API_SECRET
+    )
+    CLOUDINARY_DISPONIBLE = True
+else:
+    CLOUDINARY_DISPONIBLE = False
+    print("⚠️ Cloudinary no configurado. No se podrán subir videos.")
 
 # ================================================================
 # 🎨 PALETAS MODERNAS 2026
@@ -291,7 +306,7 @@ Devuelve SOLO el prompt en inglés, directo, sin explicaciones.
         return f"Vertical 4:5 cinematic horror film still, dark atmospheric scene with volumetric fog and one accent glow, {entidad}, wide shot, no text"
 
 # ================================================================
-# 🛡️ FILTRAR PROMPT PARA AGNES (evitar content_policy_violation)
+# 🛡️ FILTRAR PROMPT PARA AGNES
 # ================================================================
 def filtrar_prompt_para_agnes(prompt):
     palabras_prohibidas = [
@@ -326,7 +341,7 @@ def filtrar_prompt_para_agnes(prompt):
     return prompt_limpio
 
 # ================================================================
-# 📖 GENERAR HISTORIA COMPLETA (300-340 palabras, con párrafos)
+# 📖 GENERAR HISTORIA COMPLETA
 # ================================================================
 def generar_historia_completa(tema):
     prompt = f"""Eres un INVESTIGADOR DE LEYENDAS URBANAS Y TRADICIÓN ORAL MEXICANA.
@@ -398,7 +413,7 @@ Formato EXACTO de salida:
     return None
 
 # ================================================================
-# 💀 AGREGAR CTA + HASHTAGS + LEYENDA IA (respeta párrafos)
+# 💀 AGREGAR CTA + HASHTAGS + LEYENDA IA
 # ================================================================
 def agregar_cta_final(texto):
     texto = re.sub(r'#\w+', '', texto)
@@ -420,7 +435,7 @@ def agregar_cta_final(texto):
     return texto.strip() + cta + hashtags + leyenda_ia
 
 # ================================================================
-# 📝 GENERAR RESUMEN PARA REEL (100 palabras)
+# 📝 GENERAR RESUMEN PARA REEL
 # ================================================================
 def generar_resumen_reel(historia_completa):
     prompt = f"""Resume el siguiente relato de terror en un texto CORTO y ATMOSFÉRICO de EXACTAMENTE 100 palabras, ideal para un Reel de Facebook.
@@ -460,7 +475,7 @@ Devuelve SOLO el resumen, sin títulos, sin hashtags, sin llamados a la acción.
         return " ".join(palabras[:100]) + "..."
 
 # ================================================================
-# 🖼️ GENERAR IMAGEN CON AGNES AI (con filtro y reintentos)
+# 🖼️ GENERAR IMAGEN CON AGNES AI
 # ================================================================
 def generar_imagen_agnes(prompt, width=1080, height=1350, intentos=5, espera_segundos=15):
     prompt_limpio = prompt[:800]
@@ -517,12 +532,17 @@ def generar_imagen_agnes(prompt, width=1080, height=1350, intentos=5, espera_seg
     return None
 
 # ================================================================
-# 🎬 CREAR VIDEO REEL (con moviepy)
+# 🎬 CREAR VIDEO Y SUBIR A CLOUDINARY
 # ================================================================
-def crear_video_reel(texto, imagen_url, output_path="reel.mp4", duracion=6):
+def crear_y_subir_video(texto, imagen_url):
     """
-    Crea un video de 6 segundos con la imagen de fondo y el texto superpuesto.
+    Crea un video de 6 segundos y lo sube a Cloudinary.
+    Retorna la URL pública del video.
     """
+    if not CLOUDINARY_DISPONIBLE:
+        print("❌ Cloudinary no configurado. No se puede subir el video.")
+        return None
+
     print("🎬 Creando video Reel...")
     
     # 1. Descargar imagen
@@ -531,7 +551,6 @@ def crear_video_reel(texto, imagen_url, output_path="reel.mp4", duracion=6):
         print("❌ Error descargando imagen para el video")
         return None
     
-    # Guardar imagen temporal
     with open("temp_background.jpg", "wb") as f:
         f.write(img_response.content)
     
@@ -543,7 +562,6 @@ def crear_video_reel(texto, imagen_url, output_path="reel.mp4", duracion=6):
         return None
     
     # 3. Añadir texto superpuesto
-    # Dividir texto en líneas (máx 35 caracteres por línea para que quepa)
     lineas = []
     palabras = texto.split()
     linea_actual = ""
@@ -556,7 +574,6 @@ def crear_video_reel(texto, imagen_url, output_path="reel.mp4", duracion=6):
     if linea_actual:
         lineas.append(linea_actual.strip())
     
-    # Crear el texto con moviepy
     txt_clip = mp.TextClip(
         "\n".join(lineas),
         fontsize=40,
@@ -568,76 +585,55 @@ def crear_video_reel(texto, imagen_url, output_path="reel.mp4", duracion=6):
         size=(1000, 1800),
         align='center'
     )
-    txt_clip = txt_clip.set_duration(duracion).set_position('center')
+    txt_clip = txt_clip.set_duration(6).set_position('center')
     
     # 4. Combinar
-    clip = clip.set_duration(duracion)
+    clip = clip.set_duration(6)
     final = mp.CompositeVideoClip([clip, txt_clip])
     
     # 5. Exportar
+    output_path = "reel.mp4"
     final.write_videofile(output_path, fps=24, codec='libx264', audio=False, verbose=False, logger=None)
     print(f"✅ Video guardado en {output_path}")
-    return output_path
-
-# ================================================================
-# 📤 PUBLICAR REEL EN FACEBOOK (usando API Graph)
-# ================================================================
-def publicar_reel_facebook(video_path, message, access_token, page_id):
-    url = f"https://graph.facebook.com/v22.0/{page_id}/videos"
+    
+    # 6. Subir a Cloudinary
+    print("📤 Subiendo video a Cloudinary...")
     try:
-        with open(video_path, 'rb') as f:
-            files = {'source': f}
-            data = {
-                'title': message[:100],
-                'description': message,
-                'access_token': access_token,
-                'published': 'true'
-            }
-            response = requests.post(url, files=files, data=data)
-            if response.status_code == 200:
-                result = response.json()
-                print(f"✅ Reel publicado en Facebook. ID: {result.get('id')}")
-                return result
-            else:
-                print(f"❌ Error publicando Reel: {response.status_code} - {response.text}")
-                return None
+        result = upload(
+            output_path,
+            resource_type="video",
+            public_id=f"reel_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
+            overwrite=True
+        )
+        video_url = result.get('secure_url')
+        print(f"✅ Video subido: {video_url}")
+        return video_url
     except Exception as e:
-        print(f"❌ Error: {e}")
+        print(f"❌ Error subiendo a Cloudinary: {e}")
         return None
+    finally:
+        # Limpiar archivos temporales
+        try:
+            os.remove(output_path)
+            os.remove("temp_background.jpg")
+        except:
+            pass
 
 # ================================================================
-# 📤 ENVIAR A MAKE.COM (solo post y comentario)
-# ================================================================
-def enviar_a_make(payload):
-    try:
-        r = requests.post(MAKE_WEBHOOK_URL_TERROR, json=payload, timeout=60)
-        if r.status_code in [200, 201, 202]:
-            print("✅ Enviado a Make.com")
-            return True
-        else:
-            print(f"❌ Make respondió: {r.status_code}")
-            return False
-    except Exception as e:
-        print(f"❌ Error de conexión: {e}")
-        return False
-
-# ================================================================
-# 🚀 MAIN
+# MAIN
 # ================================================================
 def main():
-    print("👻 Iniciando Bot de Terror (con generación de Reel en video)")
+    print("👻 Iniciando Bot de Terror (genera video → Cloudinary → Make)")
     print(f"📅 {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
 
+    # Validar variables de entorno
     if not all([DEEPSEEK_API_KEY, MAKE_WEBHOOK_URL_TERROR, AGNES_API_KEY]):
-        print("❌ Faltan variables de entorno. Revisa los Secrets de GitHub.")
+        print("❌ Faltan variables de entorno (DEEPSEEK, MAKE, AGNES).")
         sys.exit(1)
 
-    # Verificar token para Facebook (necesario para Reel)
-    if not FACEBOOK_ACCESS_TOKEN or not FACEBOOK_PAGE_ID:
-        print("⚠️ Faltan FACEBOOK_ACCESS_TOKEN o FACEBOOK_PAGE_ID. No se publicará Reel.")
-        publicar_reel = False
-    else:
-        publicar_reel = True
+    if not CLOUDINARY_DISPONIBLE:
+        print("⚠️ Cloudinary no configurado. No se podrá subir el video del Reel.")
+        print("   El Reel se omitirá.")
 
     temas = cargar_temas()
     print(f"📚 {len(temas)} temas cargados")
@@ -685,57 +681,40 @@ def main():
     resumen_reel = generar_resumen_reel(historia_base)
     print(f"✅ Resumen: {len(resumen_reel.split())} palabras")
 
-    # ---------- Publicación en Make (post + comentario) ----------
+    # ---------- GENERAR VIDEO Y SUBIR A CLOUDINARY ----------
+    reel_video_url = None
+    if CLOUDINARY_DISPONIBLE:
+        reel_video_url = crear_y_subir_video(resumen_reel, image_reel_url)
+        if reel_video_url is None:
+            print("⚠️ Falló la creación/subida del video. El Reel se omitirá.")
+    else:
+        print("⏭️ Omisión de video (Cloudinary no configurado)")
+
+    # ---------- Enviar TODO a Make ----------
     payload = {
         "post_message": texto_final,
         "post_image": image_url,
         "comment_text": "😱 El relato completo ya está en el post principal. ¡No te lo pierdas!",
-        "reel_text": resumen_reel,
-        "reel_image": image_reel_url,
+        "reel_video_url": reel_video_url,  # URL del video en Cloudinary (o None)
+        "reel_text": resumen_reel,         # Texto para el Reel (por si acaso)
         "timestamp": datetime.now().isoformat(),
     }
-    enviado = enviar_a_make(payload)
 
-    if enviado:
-        if tema not in estado.get("publicados", []):
-            estado["publicados"].append(tema)
-        estado["ultimo_tema"] = tema
-        print(f"✅ Relato enviado a Make: {tema}")
-    else:
-        print(f"⚠️ Error en Make. Tema no registrado.")
-
-    guardar_estado(estado)
-
-    # ---------- Esperar 1 minuto para comentario (Make lo maneja) ----------
-    # Pero Make ya tiene sus propios delays, así que no esperamos aquí.
-    # El comentario se publicará en Make después de 1 minuto.
-
-    # ---------- Generar y publicar Reel directamente ----------
-    if publicar_reel:
-        print("🎬 Creando video Reel...")
-        video_path = crear_video_reel(resumen_reel, image_reel_url)
-        if video_path and os.path.exists(video_path):
-            print("📤 Publicando Reel en Facebook...")
-            resultado = publicar_reel_facebook(
-                video_path,
-                f"🌙 {resumen_reel}\n\n#LeyendasMexicanas #Terror #Reel",
-                FACEBOOK_ACCESS_TOKEN,
-                FACEBOOK_PAGE_ID
-            )
-            if resultado:
-                print("✅ Reel publicado exitosamente")
-            else:
-                print("❌ Falló publicación del Reel")
-            # Limpiar archivo temporal
-            try:
-                os.remove(video_path)
-                os.remove("temp_background.jpg")
-            except:
-                pass
+    print("📤 Enviando a Make...")
+    try:
+        r = requests.post(MAKE_WEBHOOK_URL_TERROR, json=payload, timeout=60)
+        if r.status_code in [200, 201, 202]:
+            print("✅ Enviado a Make.com correctamente")
+            if tema not in estado.get("publicados", []):
+                estado["publicados"].append(tema)
+            estado["ultimo_tema"] = tema
+            guardar_estado(estado)
+            print(f"✅ Relato publicado: {tema}")
         else:
-            print("❌ No se pudo crear el video Reel")
-    else:
-        print("⏭️ Omisión de Reel (sin token de Facebook)")
+            print(f"❌ Make respondió: {r.status_code}")
+            print(f"   Respuesta: {r.text[:200]}")
+    except Exception as e:
+        print(f"❌ Error enviando a Make: {e}")
 
     print("🎉 Proceso completado")
 
