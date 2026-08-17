@@ -2,8 +2,8 @@ name: Bot Terror - Publicación
 
 on:
   schedule:
-    - cron: '14 21 * * *'   # ~3:14 PM CDMX (21:14 UTC) -> Historia A
-    - cron: '22 2 * * *'    # ~8:22 PM CDMX (02:22 UTC) -> Historia B
+    - cron: '14 21 * * *'   # ~3:14 PM CDMX (21:14 UTC)
+    - cron: '22 2 * * *'    # ~8:22 PM CDMX (02:22 UTC)
   workflow_dispatch:
 
 permissions:
@@ -30,15 +30,16 @@ jobs:
       - name: Instalar dependencias de Python
         run: |
           pip install --upgrade pip
-          pip install requests pytz moviepy pillow imageio-ffmpeg
+          pip install requests pytz moviepy pillow imageio-ffmpeg cloudinary
 
       - name: Ejecutar bot de terror
         env:
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
           MAKE_WEBHOOK_URL_TERROR: ${{ secrets.MAKE_WEBHOOK_URL_TERROR }}
           AGNES_API_KEY: ${{ secrets.AGNES_API_KEY }}
-          FACEBOOK_ACCESS_TOKEN: ${{ secrets.FACEBOOK_ACCESS_TOKEN }}
-          FACEBOOK_PAGE_ID: ${{ secrets.FACEBOOK_PAGE_ID }}
+          CLOUDINARY_CLOUD_NAME: ${{ secrets.CLOUDINARY_CLOUD_NAME }}
+          CLOUDINARY_API_KEY: ${{ secrets.CLOUDINARY_API_KEY }}
+          CLOUDINARY_API_SECRET: ${{ secrets.CLOUDINARY_API_SECRET }}
           CRON_SCHEDULE: ${{ github.event.schedule }}
         run: python bot_terror.py
 
