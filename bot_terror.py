@@ -83,11 +83,8 @@ def descargar_musica_fondo():
     global ULTIMO_FONDO
     fondos_locales = [f for f in os.listdir(".") if f.endswith(".mp3") and f.startswith("musica_fondo_")]
     if fondos_locales:
-        # Usar un archivo existente
         fondo_path = random.choice(fondos_locales)
-        # Guardar para evitar repetir
         if ULTIMO_FONDO and ULTIMO_FONDO == fondo_path:
-            # Si se repite, intentar otro
             otros = [f for f in fondos_locales if f != ULTIMO_FONDO]
             if otros:
                 fondo_path = random.choice(otros)
@@ -95,8 +92,6 @@ def descargar_musica_fondo():
         print(f"🎵 Usando música existente: {fondo_path}")
         return fondo_path
     
-    # Si no hay archivos locales, descargar uno
-    # Barajar las URLs para variar
     urls = FONDOS_MUSICA.copy()
     random.shuffle(urls)
     for url in urls:
@@ -575,7 +570,6 @@ def dividir_resumen_en_segmentos(resumen, num_segmentos=3):
     """Divide el resumen en segmentos basados en oraciones o palabras."""
     oraciones = re.split(r'(?<=[.!?])\s+', resumen)
     if len(oraciones) >= num_segmentos:
-        # Dividir por oraciones
         segmentos = []
         oraciones_por_seg = len(oraciones) // num_segmentos
         for i in range(num_segmentos):
@@ -584,10 +578,9 @@ def dividir_resumen_en_segmentos(resumen, num_segmentos=3):
             segmentos.append(" ".join(oraciones[inicio:fin]))
         return segmentos
     else:
-        # Dividir por palabras
         palabras = resumen.split()
         if len(palabras) < num_segmentos * 5:
-            return [resumen]  # Muy corto
+            return [resumen]
         segmentos = []
         palabras_por_seg = len(palabras) // num_segmentos
         for i in range(num_segmentos):
@@ -770,9 +763,7 @@ def crear_y_subir_video(texto, imagen_url, historia_completa, tema, personaje, n
 
     print("🎬 Creando video Reel con múltiples escenas, música y subtítulos...")
     
-    # 1. Dividir el resumen en segmentos para generar imágenes
     if len(texto.split()) < 20:
-        # Si el resumen es muy corto, usar una sola imagen
         segmentos_texto = [texto]
         num_escenas = 1
     else:
@@ -780,10 +771,8 @@ def crear_y_subir_video(texto, imagen_url, historia_completa, tema, personaje, n
     
     print(f"📝 Generando {len(segmentos_texto)} imágenes para las escenas del Reel...")
     
-    # 2. Generar imágenes para cada segmento
     urls_imagenes = []
     for i, seg in enumerate(segmentos_texto):
-        # Usar el segmento como contexto para el prompt
         prompt_seg = f"Escena de la historia: {seg}\n\n{historia_completa[:300]}"
         img_prompt = generar_prompt_imagen(prompt_seg, tema, personaje)
         img_url = generar_imagen_agnes(img_prompt, width=1080, height=1920, intentos=2, espera_segundos=10)
@@ -791,7 +780,6 @@ def crear_y_subir_video(texto, imagen_url, historia_completa, tema, personaje, n
             urls_imagenes.append(img_url)
             print(f"✅ Imagen {i+1}/{len(segmentos_texto)} generada")
         else:
-            # Fallback: usar la imagen general del Reel
             if imagen_url:
                 urls_imagenes.append(imagen_url)
                 print(f"⚠️ Imagen {i+1} falló, usando imagen general del Reel")
@@ -799,23 +787,19 @@ def crear_y_subir_video(texto, imagen_url, historia_completa, tema, personaje, n
                 placeholder = generar_y_subir_placeholder(f"Escena {i+1}", (1080, 1920))
                 urls_imagenes.append(placeholder if placeholder else imagen_url)
     
-    # Asegurar al menos 3 imágenes, rellenando con placeholders si es necesario
     while len(urls_imagenes) < 3:
         placeholder = generar_y_subir_placeholder(f"Escena {len(urls_imagenes)+1}", (1080, 1920))
         urls_imagenes.append(placeholder if placeholder else "https://via.placeholder.com/1080x1920/1a1a1a/ff0000?text=Escena")
     
-    # Limitar a num_escenas (máximo 5 para no saturar)
     if len(urls_imagenes) > 5:
         urls_imagenes = urls_imagenes[:5]
     
-    # 3. Generar audio de narración
     print("🔊 Generando narración con edge-tts...")
     audio_path = generar_audio_edge_tts(texto, "reel")
     if not audio_path:
         print("❌ No se pudo generar audio.")
         return None
     
-    # 4. Cargar audio
     try:
         audio_clip = AudioFileClip(audio_path)
         duracion_total = audio_clip.duration
@@ -824,13 +808,11 @@ def crear_y_subir_video(texto, imagen_url, historia_completa, tema, personaje, n
         print(f"❌ Error cargando audio: {e}")
         return None
     
-    # 5. Descargar música de fondo
     fondo_path = descargar_musica_fondo()
     fondo_audio = None
     if fondo_path and os.path.exists(fondo_path):
         try:
             fondo_audio = AudioFileClip(fondo_path)
-            # Ajustar duración al audio de narración
             if fondo_audio.duration < duracion_total:
                 veces = int(duracion_total / fondo_audio.duration) + 1
                 from moviepy import concatenate_audioclips
@@ -841,20 +823,17 @@ def crear_y_subir_video(texto, imagen_url, historia_completa, tema, personaje, n
             print(f"⚠️ Error con música de fondo: {e}")
             fondo_audio = None
     
-    # 6. Crear clips de video para cada imagen
     clips = []
     duracion_por_segmento = duracion_total / len(urls_imagenes)
     
     for i, url_img in enumerate(urls_imagenes):
         print(f"🖼️ Procesando escena {i+1}/{len(urls_imagenes)}...")
-        # Descargar imagen
         img_data = descargar_imagen_con_retry(url_img)
         if img_data:
             img_path = f"temp_scene_{i}.jpg"
             with open(img_path, "wb") as f:
                 f.write(img_data)
         else:
-            # Usar placeholder
             placeholder = generar_y_subir_placeholder(f"Escena {i+1}", (1080, 1920))
             if placeholder:
                 img_data = descargar_imagen_con_retry(placeholder)
@@ -870,7 +849,6 @@ def crear_y_subir_video(texto, imagen_url, historia_completa, tema, personaje, n
         try:
             clip = ImageClip(img_path).resized((1080, 1920))
             clip = clip.with_duration(duracion_por_segmento)
-            # Aplicar zoom lento
             clip = aplicar_zoom_lento(clip, zoom_final=1.10)
             clips.append(clip)
         except Exception as e:
@@ -879,7 +857,6 @@ def crear_y_subir_video(texto, imagen_url, historia_completa, tema, personaje, n
     
     if not clips:
         print("❌ No se pudieron crear clips. Usando imagen única.")
-        # Fallback: usar una sola imagen
         img_data = descargar_imagen_con_retry(imagen_url)
         if img_data:
             img_path = "temp_fallback.jpg"
@@ -890,12 +867,9 @@ def crear_y_subir_video(texto, imagen_url, historia_completa, tema, personaje, n
             clip = aplicar_zoom_lento(clip, zoom_final=1.10)
             clips = [clip]
     
-    # 7. Concatenar clips de video
     video_final = concatenate_videoclips(clips, method="compose")
     video_final = video_final.with_duration(duracion_total)
     
-    # 8. Agregar subtítulos (usando TextClip con fuente .ttf descargada)
-    # Descargar una fuente .ttf si no existe
     fuente_path = "DejaVuSans.ttf"
     if not os.path.exists(fuente_path):
         try:
@@ -913,7 +887,6 @@ def crear_y_subir_video(texto, imagen_url, historia_completa, tema, personaje, n
             print(f"⚠️ Error descargando fuente: {e}")
             fuente_path = None
     
-    # Dividir el texto en líneas para subtítulos
     lineas_texto = []
     palabras = texto.split()
     linea_actual = ""
@@ -950,11 +923,9 @@ def crear_y_subir_video(texto, imagen_url, historia_completa, tema, personaje, n
     else:
         print("⚠️ Sin fuente, no se agregaron subtítulos")
     
-    # 9. Combinar video, subtítulos y audio
     if subtitulo_clip:
         video_final = CompositeVideoClip([video_final, subtitulo_clip])
     
-    # Mezclar audio de narración con música de fondo
     if fondo_audio:
         audio_final = CompositeAudioClip([audio_clip, fondo_audio])
     else:
@@ -962,7 +933,6 @@ def crear_y_subir_video(texto, imagen_url, historia_completa, tema, personaje, n
     
     video_final = video_final.with_audio(audio_final)
     
-    # 10. Exportar
     output_path = "reel.mp4"
     try:
         video_final.write_videofile(output_path, fps=24, codec='libx264', logger=None)
@@ -971,7 +941,6 @@ def crear_y_subir_video(texto, imagen_url, historia_completa, tema, personaje, n
         print(f"❌ Error exportando: {e}")
         return None
     
-    # 11. Subir a Cloudinary
     print("📤 Subiendo a Cloudinary...")
     try:
         result = upload(
@@ -995,11 +964,11 @@ def crear_y_subir_video(texto, imagen_url, historia_completa, tema, personaje, n
                 pass
 
 # ================================================================
-# MAIN
+# MAIN (MODIFICADO PARA GENERAR RELATOS DIFERENTES)
 # ================================================================
 def main():
     print(f"🎤 Voz inicial: {CONFIG_VOZ_ACTUAL['voz']} ({CONFIG_VOZ_ACTUAL['velocidad']})")
-    print("👻 Iniciando Bot de Terror (edge-tts + Zoom Lento + Música + Subtítulos + 3 Escenas)")
+    print("👻 Iniciando Bot de Terror (POST y REEL con relatos DIFERENTES)")
     print(f"📅 {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
 
     if not all([DEEPSEEK_API_KEY, MAKE_WEBHOOK_URL_TERROR, AGNES_API_KEY]):
@@ -1010,78 +979,99 @@ def main():
     print(f"📚 {len(temas)} temas cargados")
 
     estado = cargar_estado()
-    tema = obtener_tema_no_repetido(temas, estado)
-    print(f"📖 Tema seleccionado: {tema}")
+    
+    # ==========================================
+    # 1. GENERAR POST (Relato A)
+    # ==========================================
+    tema_post = obtener_tema_no_repetido(temas, estado)
+    print(f"📖 Tema POST seleccionado: {tema_post}")
 
-    print("📝 Generando historia...")
-    historia_base = generar_historia_completa(tema)
-    if not historia_base:
-        print("❌ Falló la generación de la historia.")
+    print("📝 Generando historia para POST...")
+    historia_post = generar_historia_completa(tema_post)
+    if not historia_post:
+        print("❌ Falló la generación de la historia del POST.")
         sys.exit(1)
 
-    print(f"✅ Historia generada ({len(historia_base.split())} palabras)")
+    print(f"✅ Historia POST generada ({len(historia_post.split())} palabras)")
+    personaje_post = detectar_personaje_y_epoca(historia_post)
 
-    print("🧑 Detectando personaje y época...")
-    personaje = detectar_personaje_y_epoca(historia_base)
-
-    # Extraer título de la historia
-    titulo_historia = "Relato de terror"
-    for linea in historia_base.split('\n'):
+    titulo_post = "Relato de terror"
+    for linea in historia_post.split('\n'):
         if linea.strip().startswith('🌙'):
-            titulo_historia = linea.strip().replace('🌙', '').strip()
+            titulo_post = linea.strip().replace('🌙', '').strip()
             break
 
-    # --- Imagen para post (4:5) ---
-    print("🎨 Generando prompt para post...")
-    prompt_post = generar_prompt_imagen(historia_base, tema, personaje)
-    image_url = generar_imagen_agnes(prompt_post, width=1080, height=1350, intentos=5)
-    if not image_url:
+    print("🎨 Generando imagen para POST (4:5)...")
+    prompt_post = generar_prompt_imagen(historia_post, tema_post, personaje_post)
+    image_post_url = generar_imagen_agnes(prompt_post, width=1080, height=1350, intentos=5)
+    if not image_post_url:
         print("❌ No se pudo obtener imagen para post. Abortando.")
         sys.exit(1)
-    print(f"📷 URL post: {image_url[:60]}...")
 
-    # --- Imagen general para Reel (9:16) - fallback si fallan las escenas ---
-    print("🎨 Generando prompt para Reel...")
-    prompt_reel = prompt_post.replace("4:5", "9:16")
-    image_reel_url = generar_imagen_agnes(prompt_reel, width=1080, height=1920, intentos=3)
-    if not image_reel_url:
-        print("❌ No se pudo obtener imagen para Reel. Se usará placeholder genérico.")
-        image_reel_url = generar_y_subir_placeholder("Reel", (1080, 1920))
-        if not image_reel_url:
-            image_reel_url = "https://via.placeholder.com/1080x1920/1a1a1a/ff0000?text=Reel"
-    print(f"📷 URL Reel: {image_reel_url[:60]}...")
+    texto_final_post = agregar_cta_final(historia_post)
+    print("✅ POST listo: Historia + Imagen + CTA")
 
-    texto_final = agregar_cta_final(historia_base)
-    print("✅ CTA y hashtags agregados")
+    # ==========================================
+    # 2. GENERAR REEL (Relato B - DIFERENTE)
+    # ==========================================
+    # Evitar que el tema del Reel sea el mismo que el del Post
+    estado_temporal = {
+        "publicados": estado.get("publicados", []) + [tema_post],
+        "ultimo_tema": tema_post
+    }
+    tema_reel = obtener_tema_no_repetido(temas, estado_temporal)
+    print(f"🎬 Tema REEL seleccionado (diferente al post): {tema_reel}")
+
+    print("📝 Generando historia para REEL...")
+    historia_reel = generar_historia_completa(tema_reel)
+    if not historia_reel:
+        print("❌ Falló la generación de la historia del REEL.")
+        sys.exit(1)
+        
+    print(f"✅ Historia REEL generada ({len(historia_reel.split())} palabras)")
+    personaje_reel = detectar_personaje_y_epoca(historia_reel)
+    
+    titulo_reel = "Relato de terror"
+    for linea in historia_reel.split('\n'):
+        if linea.strip().startswith('🌙'):
+            titulo_reel = linea.strip().replace('🌙', '').strip()
+            break
 
     print("📝 Generando resumen para Reel...")
-    resumen_reel = generar_resumen_reel(historia_base)
-    print(f"✅ Resumen: {len(resumen_reel.split())} palabras")
+    resumen_reel = generar_resumen_reel(historia_reel)
+    print(f"✅ Resumen Reel: {len(resumen_reel.split())} palabras")
 
-    # --- Crear video con múltiples escenas y subir a Cloudinary ---
+    # Imagen de respaldo para el Reel (por si fallan las escenas)
+    print("🎨 Generando imagen de respaldo para Reel (9:16)...")
+    prompt_reel = generar_prompt_imagen(historia_reel, tema_reel, personaje_reel).replace("4:5", "9:16")
+    image_reel_url = generar_imagen_agnes(prompt_reel, width=1080, height=1920, intentos=3)
+    if not image_reel_url:
+        image_reel_url = generar_y_subir_placeholder("Reel", (1080, 1920)) or "https://via.placeholder.com/1080x1920/1a1a1a/ff0000?text=Reel"
+
+    # Crear video con múltiples escenas (imágenes generadas a partir de historia_reel)
     reel_video_url = None
     if CLOUDINARY_DISPONIBLE:
         reel_video_url = crear_y_subir_video(
             texto=resumen_reel,
             imagen_url=image_reel_url,
-            historia_completa=historia_base,
-            tema=tema,
-            personaje=personaje,
+            historia_completa=historia_reel,  # <--- Usamos la historia del REEL
+            tema=tema_reel,                   # <--- Usamos el tema del REEL
+            personaje=personaje_reel,         # <--- Usamos el personaje del REEL
             num_escenas=3
         )
-        if not reel_video_url:
-            print("⚠️ Falló la creación/subida del video.")
     else:
         print("⏭️ Cloudinary no configurado, omitiendo Reel.")
 
-    # --- Preparar descripción del Reel (solo título + hashtags + disclaimer IA) ---
+    # Descripción del Reel basada en el Relato B
     hashtags_texto = "#LeyendasMexicanas #Terror #Misterio #Paranormal #Mexico"
-    descripcion_reel = f"🌙 {titulo_historia}\n\n{hashtags_texto}\n\n_Imágenes y voz generados con IA._"
+    descripcion_reel = f"🌙 {titulo_reel}\n\n{hashtags_texto}\n\n_Imágenes y voz generados con IA._"
 
-    # --- Enviar a Make ---
+    # ==========================================
+    # 3. ENVIAR A MAKE
+    # ==========================================
     payload = {
-        "post_message": texto_final,
-        "post_image": image_url,
+        "post_message": texto_final_post,
+        "post_image": image_post_url,
         "comment_text": "😱 El relato completo ya está en el post principal. ¡No te lo pierdas!",
         "reel_video_url": reel_video_url,
         "reel_text": descripcion_reel,
@@ -1093,11 +1083,14 @@ def main():
         r = requests.post(MAKE_WEBHOOK_URL_TERROR, json=payload, timeout=60)
         if r.status_code in [200, 201, 202]:
             print("✅ Enviado a Make correctamente")
-            if tema not in estado.get("publicados", []):
-                estado["publicados"].append(tema)
-            estado["ultimo_tema"] = tema
+            # Guardar AMBOS temas como publicados
+            if tema_post not in estado.get("publicados", []):
+                estado["publicados"].append(tema_post)
+            if tema_reel not in estado.get("publicados", []):
+                estado["publicados"].append(tema_reel)
+            estado["ultimo_tema"] = tema_reel
             guardar_estado(estado)
-            print(f"✅ Relato publicado: {tema}")
+            print(f"✅ Relatos publicados: POST ({tema_post}) | REEL ({tema_reel})")
         else:
             print(f"❌ Make respondió: {r.status_code}")
             print(f"   Respuesta: {r.text[:200]}")
