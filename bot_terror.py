@@ -15,6 +15,8 @@ import cloudinary
 from gtts import gTTS
 from PIL import Image, ImageDraw, ImageFont
 import io
+import glob
+import atexit
 
 # ================================================================
 # CONFIGURACIÓN
@@ -64,55 +66,21 @@ VOCES_DISPONIBLES = [
 CONFIG_VOZ_ACTUAL = random.choice(VOCES_DISPONIBLES)
 
 # ================================================================
-# 🎵 MÚSICA DE FONDO (descarga automática)
+# 🎵 MÚSICA DE FONDO (desde archivos locales)
 # ================================================================
-FONDOS_MUSICA = [
-    "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3",
-    "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3",
-    "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3",
-    "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3",
-    "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-5.mp3",
-    "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-6.mp3",
-    "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-7.mp3",
-    "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-8.mp3",
-]
-ULTIMO_FONDO = None
-
 def descargar_musica_fondo():
-    """Descarga un archivo de música aleatorio si no existe localmente."""
-    global ULTIMO_FONDO
-    fondos_locales = [f for f in os.listdir(".") if f.endswith(".mp3") and f.startswith("musica_fondo_")]
-    if fondos_locales:
-        fondo_path = random.choice(fondos_locales)
-        if ULTIMO_FONDO and ULTIMO_FONDO == fondo_path:
-            otros = [f for f in fondos_locales if f != ULTIMO_FONDO]
-            if otros:
-                fondo_path = random.choice(otros)
-        ULTIMO_FONDO = fondo_path
-        print(f"🎵 Usando música existente: {fondo_path}")
+    mp3_files = glob.glob("*.mp3") + glob.glob("**/*.mp3", recursive=True)
+    mp3_files = [f for f in mp3_files if not f.startswith("narracion_") and not f.startswith("audio_")]
+    if mp3_files:
+        fondo_path = random.choice(mp3_files)
+        print(f"🎵 Música seleccionada al azar: {fondo_path}")
         return fondo_path
-    
-    urls = FONDOS_MUSICA.copy()
-    random.shuffle(urls)
-    for url in urls:
-        try:
-            print(f"🎵 Descargando música: {url}")
-            r = requests.get(url, timeout=30)
-            if r.status_code == 200:
-                filename = f"musica_fondo_{random.randint(1000,9999)}.mp3"
-                with open(filename, "wb") as f:
-                    f.write(r.content)
-                print(f"✅ Música descargada: {filename}")
-                ULTIMO_FONDO = filename
-                return filename
-        except Exception as e:
-            print(f"⚠️ Error descargando música: {e}")
-            continue
-    print("⚠️ No se pudo descargar música de fondo. Se usará solo narración.")
-    return None
+    else:
+        print("⚠️ No se encontraron archivos .mp3 en el repositorio. Se usará solo narración.")
+        return None
 
 # ================================================================
-# 🖼️ GENERAR IMAGEN DE RESPALDO (sin texto)
+# 🖼️ GENERAR IMAGEN DE RESPALDO
 # ================================================================
 def generar_imagen_respaldo(width=1080, height=1350):
     try:
@@ -125,9 +93,9 @@ def generar_imagen_respaldo(width=1080, height=1350):
             os.remove(path)
             return url
         else:
-            return "https://via.placeholder.com/{width}x{height}/1a1a1a/303060"
+            return f"https://via.placeholder.com/{width}x{height}/1a1a1a/303060"
     except:
-        return "https://via.placeholder.com/{width}x{height}/1a1a1a/303060"
+        return f"https://via.placeholder.com/{width}x{height}/1a1a1a/303060"
 
 # ================================================================
 # FUNCIONES AUXILIARES
@@ -177,7 +145,7 @@ def limpiar_texto_para_imagen(texto):
     return texto.strip()
 
 # ================================================================
-# 🧹 LIMPIAR TEXTO PARA TTS (convierte números a palabras)
+# 🧹 LIMPIAR TEXTO PARA TTS (conversión de números)
 # ================================================================
 def convertir_numero_a_palabras(numero):
     unidades = ['cero', 'uno', 'dos', 'tres', 'cuatro', 'cinco', 'seis', 'siete', 'ocho', 'nueve']
@@ -307,7 +275,7 @@ Devuelve SOLO el JSON, sin explicaciones, sin markdown.
         }
 
 # ================================================================
-# 🎭 DETECTOR DE ENTIDAD
+# 🎭 DETECTOR DE ENTIDAD (para variar visuales)
 # ================================================================
 def detectar_tipo_entidad(tema):
     t = tema.lower()
@@ -333,7 +301,7 @@ DIRECTRICES_ENTIDAD = {
 }
 
 # ================================================================
-# 🎨 GENERAR PROMPT DE IMAGEN
+# 🎨 GENERAR PROMPT DE IMAGEN CON DEEPSEEK (VERSIÓN MUY NEUTRAL)
 # ================================================================
 def generar_prompt_imagen(historia, tema, personaje):
     tipo = detectar_tipo_entidad(tema)
@@ -358,38 +326,36 @@ def generar_prompt_imagen(historia, tema, personaje):
         sujeto_humano = f"a {edad}-year-old Mexican woman"
     else:
         sujeto_humano = f"a {edad}-year-old Mexican man"
-    
-    prompt = f"""Eres un DIRECTOR DE FOTOGRAFÍA DE CINE.
-Crea un PROMPT DE IMAGEN EN INGLÉS para una imagen VERTICAL (4:5) que sea la escena MÁS REPRESENTATIVA de esta historia.
+
+    prompt_deepseek = f"""Eres un EXPERTO EN FOTOGRAFÍA CINEMATOGRÁFICA. Tu tarea es generar un prompt de imagen en INGLÉS para una foto VERTICAL (4:5) de una escena que represente la siguiente historia, pero de forma SUTIL y ATMOSFÉRICA.
 
 HISTORIA:
 \"\"\"
 {limpiar_texto_para_imagen(historia)[:400]}
 \"\"\"
-TEMA: {tema}
-PERSONAJE HUMANO: {sujeto_humano}
-ÉPOCA EXACTA: {epoca_mod}
 
-🎬 ESTILO VISUAL:
-- Cinematic film still, dramatic volumetric lighting, atmospheric fog
-- High contrast chiaroscuro: deep black shadows + ONE dominant accent glow
-- Moonlight beams, god rays, anamorphic lens feel, shallow depth of field
+REGLAS ABSOLUTAMENTE ESTRICTAS:
+1. La imagen debe parecer una fotografía REALISTA, no una ilustración.
+2. Enfócate en el ENTORNO: arquitectura, calles, paisajes, objetos. La historia sucede en un lugar; muestra ese lugar.
+3. Si el personaje aparece, debe ser muy pequeño (menos del 20% del encuadre), de espaldas o a lo lejos. 
+4. ESTILO: fotografía nocturna, luces tenues, niebla ligera, colores fríos (azulados, grises, o cálidos si es atardecer).
+5. PROHIBIDO mencionar: ghost, terror, horror, paranormal, supernatural, haunted, creepy, scary, evil, demon, devil, death, blood, gore, wound, kill, murder, etc. En su lugar, usa palabras como: atmosphere, moody, dim light, foggy, mysterious (pero sin miedo).
+6. La imagen debe ser apta para todo público, sin elementos violentos ni aterradores.
+7. Época exacta: {epoca_mod}. Muestra vehículos, edificios y vestimenta de esa época.
 
-📐 COMPOSICIÓN Y LÓGICA NARRATIVA:
-- PLANO: wide o medium-wide shot, vertical 4:5
-- EL ENTORNO ES EL PROTAGONISTA: arquitectura, callejones, bosques, carreteras, objetos de la época.
-- HUMANO: {sujeto_humano} — de espaldas o a distancia, ocupando MÁXIMO 20% del encuadre.
-- EXACTAMENTE UNA figura humana. La imagen debe reflejar la lógica del relato y la época específica.
+Ejemplo de prompt BUENO:
+"A cinematic vertical 4:5 photograph of a quiet street in a small Mexican town at night, with a vintage car parked under a streetlamp, soft fog, and a person walking away in the distance. Dark blue and amber tones, realistic photography."
 
-🚫 PROHIBIDO: gore, sangre, heridas, caras en primer plano, texto, watermarks, multitudes, personas duplicadas, clones, gemelos, dobles caras, dos cabezas.
+Ejemplo de prompt MALO:
+"A ghost appears in the dark, terrifying shadows, horror movie style."
 
-Devuelve SOLO el prompt en inglés, directo, sin explicaciones.
+Devuelve SOLO el prompt en inglés, sin explicaciones, directo y concreto.
 """
     url = "https://api.deepseek.com/v1/chat/completions"
     headers = {"Authorization": f"Bearer {DEEPSEEK_API_KEY}", "Content-Type": "application/json"}
     payload = {
         "model": "deepseek-chat",
-        "messages": [{"role": "user", "content": prompt}],
+        "messages": [{"role": "user", "content": prompt_deepseek}],
         "temperature": 0.6,
         "max_tokens": 350,
     }
@@ -397,16 +363,63 @@ Devuelve SOLO el prompt en inglés, directo, sin explicaciones.
         r = requests.post(url, headers=headers, json=payload, timeout=60)
         r.raise_for_status()
         prompt_imagen = r.json()["choices"][0]["message"]["content"].strip()
-        prompt_imagen += ", vertical 4:5 cinematic poster style, volumetric fog, high contrast, one accent glow color, sharp focus, no text, no watermark"
+        # Limpiar posibles etiquetas de markdown
+        prompt_imagen = re.sub(r'["\']', '', prompt_imagen)
+        prompt_imagen = prompt_imagen.strip()
+        if not prompt_imagen.endswith('.'):
+            prompt_imagen += '.'
+        # Añadir sufijo seguro
+        prompt_imagen += " vertical 4:5, realistic photography, no horror, no violence, no ghosts, no blood, no text."
         return prompt_imagen
     except Exception as e:
         print(f"❌ Error generando prompt de imagen: {e}")
-        return f"Vertical 4:5 cinematic film still, dark atmospheric scene with volumetric fog, wide shot, no text"
+        return "Vertical 4:5 cinematic photograph of an empty street at night with fog and lamplight, realistic style, no horror, no ghosts, no text."
 
 # ================================================================
-# 🛡️ FILTRAR PROMPT PARA AGNES
+# 🛡️ FILTRAR Y REESCRIBIR PROMPT PARA AGNES (MUY AGRESIVO)
 # ================================================================
-def filtrar_prompt_para_agnes(prompt):
+def reescribir_prompt_seguro(prompt):
+    """Reemplaza palabras 'peligrosas' por sinónimos inofensivos."""
+    reemplazos = {
+        r'\bghost\b': 'silhouette',
+        r'\bphantom\b': 'figure',
+        r'\bspecter\b': 'shadow',
+        r'\bapparition\b': 'form',
+        r'\bhorror\b': 'atmosphere',
+        r'\bterror\b': 'mystery',
+        r'\bhaunted\b': 'old',
+        r'\bspooky\b': 'moody',
+        r'\bcreepy\b': 'dimly lit',
+        r'\bscary\b': 'dark',
+        r'\bevil\b': 'unsettling',
+        r'\bdemon\b': 'shadow',
+        r'\bdevil\b': 'figure',
+        r'\bdeath\b': 'stillness',
+        r'\bkill\b': 'silence',
+        r'\bmurder\b': 'incident',
+        r'\bblood\b': 'darkness',
+        r'\bgore\b': 'red tones',
+        r'\bwound\b': 'mark',
+        r'\binjury\b': 'scar',
+        r'\bparanormal\b': 'mysterious',
+        r'\bsupernatural\b': 'unexplained',
+        r'\bfear\b': 'tension',
+        r'\bpanic\b': 'intensity',
+        r'\bscream\b': 'echo',
+        r'\bshriek\b': 'sound',
+        r'\bhowl\b': 'wind',
+        r'\battack\b': 'silence',
+        r'\bassault\b': 'incident',
+        r'\bvicious\b': 'intense',
+        r'\bmenacing\b': 'dark',
+        r'\bthreatening\b': 'ominous',
+    }
+    prompt_limpio = prompt
+    for patron, sustituto in reemplazos.items():
+        prompt_limpio = re.sub(patron, sustituto, prompt_limpio, flags=re.IGNORECASE)
+    # Eliminar múltiples espacios
+    prompt_limpio = re.sub(r'\s+', ' ', prompt_limpio).strip()
+    # Asegurar que no contenga palabras prohibidas residuales
     palabras_prohibidas = [
         "gore", "blood", "bleeding", "wound", "injury", "mutilated", "disfigured",
         "corpse", "dead", "death", "dying", "kill", "murder", "assassination",
@@ -426,19 +439,17 @@ def filtrar_prompt_para_agnes(prompt):
         "dead body", "murdered", "vicious", "haunted", "spooky",
         "paranormal", "supernatural", "eerie", "uncanny", "macabre", "ghastly"
     ]
-    prompt_limpio = prompt
     for palabra in palabras_prohibidas:
         prompt_limpio = re.sub(rf'\b{palabra}\b', '', prompt_limpio, flags=re.IGNORECASE)
     prompt_limpio = re.sub(r'\s+', ' ', prompt_limpio).strip()
-    
-    if len(prompt_limpio.split()) < 15:
-        prompt_limpio = "Cinematic landscape photograph, atmospheric moonlight, mysterious urban scene at night, cinematic mood, wide shot, vertical composition, no people, no text, no violence"
-    
-    if not prompt_limpio.lower().startswith("cinematic"):
-        prompt_limpio = "Cinematic atmospheric photograph, " + prompt_limpio
-    
-    print(f"🛡️ Prompt filtrado para Agnes ({len(prompt_limpio)} caracteres)")
+    if len(prompt_limpio.split()) < 8:
+        # Si quedó muy corto, usar uno genérico
+        return "Vertical 4:5 cinematic photograph of a quiet urban street at night with fog and streetlights, realistic style, no text."
     return prompt_limpio
+
+def filtrar_prompt_para_agnes(prompt):
+    """Aplica el reemplazo de sinónimos y elimina palabras prohibidas."""
+    return reescribir_prompt_seguro(prompt)
 
 # ================================================================
 # 📖 GENERAR HISTORIA COMPLETA
@@ -589,17 +600,19 @@ def dividir_resumen_en_segmentos(resumen, num_segmentos=3):
         return segmentos
 
 # ================================================================
-# 🖼️ GENERAR IMAGEN CON AGNES
+# 🖼️ GENERAR IMAGEN CON AGNES (CON REINTENTOS Y REWRITE)
 # ================================================================
 def generar_imagen_agnes(prompt, width=1080, height=1350, intentos=6, espera_segundos=15):
     prompt_original = prompt
     for intento in range(1, intentos + 1):
         print(f"🎨 Intento {intento}/{intentos} generando imagen...")
+        # En el primer intento, usar prompt original; si falla, ir reescribiendo
         if intento > 1:
-            prompt = filtrar_prompt_para_agnes(prompt_original)
+            prompt = reescribir_prompt_seguro(prompt_original)
         if intento > 3:
-            prompt = "Cinematic vertical 4:5 landscape, atmospheric dark scene with subtle moonlight, mysterious mood, no people, no text, no violence"
-        
+            # Si sigue fallando, usar uno genérico y muy neutral
+            prompt = "Vertical 4:5 cinematic photograph of a quiet urban street at night with fog and streetlights, realistic photography, no violence, no ghosts, no text."
+
         prompt_limpio = prompt[:800]
         url = "https://apihub.agnes-ai.com/v1/images/generations"
         headers = {"Authorization": f"Bearer {AGNES_API_KEY}", "Content-Type": "application/json"}
@@ -636,7 +649,7 @@ def generar_imagen_agnes(prompt, width=1080, height=1350, intentos=6, espera_seg
                 error_msg = response.text[:200]
                 print(f"❌ Error en Agnes: {response.status_code} - {error_msg}")
                 if "content_policy_violation" in error_msg:
-                    print(f"⚠️ Violación de política (intento {intento}). Reintentando...")
+                    print(f"⚠️ Violación de política (intento {intento}). Reescribiendo prompt...")
                     time.sleep(espera_segundos)
                     continue
                 else:
@@ -748,13 +761,9 @@ def aplicar_zoom_lento(clip, zoom_final=1.10):
     return clip.transform(efecto)
 
 # ================================================================
-# 🎬 SUBTÍTULOS CON FALLBACK PIL (SIEMPRE VISIBLES)
+# 🎬 CREAR SUBTÍTULO POR SEGMENTO
 # ================================================================
-def crear_subtitulos(texto, duracion, video_size=(1080, 1920)):
-    """
-    Crea un clip de subtítulos. Intenta TextClip primero; si falla, usa PIL para generar una imagen de texto.
-    """
-    # Dividir en líneas
+def crear_subtitulo_por_segmento(texto, duracion, video_size=(1080, 1920)):
     lineas = []
     palabras = texto.split()
     linea = ""
@@ -768,7 +777,6 @@ def crear_subtitulos(texto, duracion, video_size=(1080, 1920)):
         lineas.append(linea.strip())
     texto_final = "\n".join(lineas)
 
-    # Intentar con TextClip y fuentes comunes
     for fuente in ['Arial', 'DejaVu-Sans', 'sans-serif', None]:
         try:
             txt_clip = TextClip(
@@ -783,21 +791,15 @@ def crear_subtitulos(texto, duracion, video_size=(1080, 1920)):
                 text_align='center',
             )
             txt_clip = txt_clip.with_duration(duracion).with_position(('center', 'center'))
-            print(f"✅ Subtítulos creados con fuente: {fuente or 'default'}")
             return txt_clip
-        except Exception as e:
-            print(f"⚠️ TextClip con fuente {fuente} falló: {e}")
+        except:
             continue
 
-    # Fallback con PIL
-    print("🔄 Usando PIL para crear subtítulos...")
+    # Fallback PIL
     try:
-        # Crear imagen de texto
         img_width = video_size[0]
-        # Crear una imagen transparente para el texto
         img = Image.new("RGBA", (img_width, int(video_size[1] * 0.7)), (0, 0, 0, 0))
         draw = ImageDraw.Draw(img)
-        # Usar una fuente disponible en el sistema (DejaVu-Sans o Arial)
         font_paths = [
             "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
             "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
@@ -815,31 +817,23 @@ def crear_subtitulos(texto, duracion, video_size=(1080, 1920)):
         if font is None:
             font = ImageFont.load_default()
         
-        # Dibujar texto con borde negro
         y_offset = 50
         for linea in lineas:
             bbox = draw.textbbox((0, 0), linea, font=font)
             text_width = bbox[2] - bbox[0]
             text_height = bbox[3] - bbox[1]
             x = (img_width - text_width) // 2
-            # Borde negro
             for dx, dy in [(-2,-2), (-2,0), (-2,2), (0,-2), (0,2), (2,-2), (2,0), (2,2)]:
                 draw.text((x+dx, y_offset+dy), linea, fill='black', font=font)
             draw.text((x, y_offset), linea, fill='white', font=font)
             y_offset += text_height + 10
         
-        # Convertir a clip
-        img_path = f"subtitulos_{random.randint(1000,9999)}.png"
+        img_path = f"subtitulo_seg_{random.randint(1000,9999)}.png"
         img.save(img_path)
         sub_clip = ImageClip(img_path).with_duration(duracion).with_position(('center', 'center'))
-        # Limpiar archivo temporal después de crear el clip (no se puede eliminar ahora, pero se eliminará después)
-        # Programar eliminación
-        import atexit
         atexit.register(lambda p=img_path: os.remove(p) if os.path.exists(p) else None)
-        print("✅ Subtítulos creados con PIL")
         return sub_clip
-    except Exception as e:
-        print(f"❌ Error crítico creando subtítulos con PIL: {e}")
+    except:
         return None
 
 # ================================================================
@@ -850,7 +844,7 @@ def crear_y_subir_video(texto, imagen_url, historia_completa, tema, personaje, n
         print("❌ Cloudinary no configurado.")
         return None
 
-    print("🎬 Creando video Reel con múltiples escenas, música y subtítulos...")
+    print("🎬 Creando video Reel con múltiples escenas, música y subtítulos por segmento...")
     
     if len(texto.split()) < 20:
         segmentos_texto = [texto]
@@ -858,7 +852,7 @@ def crear_y_subir_video(texto, imagen_url, historia_completa, tema, personaje, n
     else:
         segmentos_texto = dividir_resumen_en_segmentos(texto, num_escenas)
     
-    print(f"📝 Generando {len(segmentos_texto)} imágenes para las escenas del Reel...")
+    print(f"📝 Generando {len(segmentos_texto)} imágenes y subtítulos para el Reel...")
     
     urls_imagenes = []
     for i, seg in enumerate(segmentos_texto):
@@ -907,7 +901,7 @@ def crear_y_subir_video(texto, imagen_url, historia_completa, tema, personaje, n
                 from moviepy import concatenate_audioclips
                 fondo_audio = concatenate_audioclips([fondo_audio] * veces)
             fondo_audio = fondo_audio.subclipped(0, duracion_total).with_volume_scaled(0.08)
-            print("🎵 Música de fondo cargada")
+            print("🎵 Música de fondo cargada desde archivo local")
         except Exception as e:
             print(f"⚠️ Error con música de fondo: {e}")
             fondo_audio = None
@@ -957,6 +951,8 @@ def crear_y_subir_video(texto, imagen_url, historia_completa, tema, personaje, n
                 clip = clip.with_duration(duracion_total)
                 clip = aplicar_zoom_lento(clip, zoom_final=1.10)
                 clips = [clip]
+                segmentos_texto = [texto]
+                duracion_por_segmento = duracion_total
             else:
                 print("❌ No se pudo generar ni siquiera la imagen de respaldo.")
                 return None
@@ -964,12 +960,25 @@ def crear_y_subir_video(texto, imagen_url, historia_completa, tema, personaje, n
     video_final = concatenate_videoclips(clips, method="compose")
     video_final = video_final.with_duration(duracion_total)
     
-    # ===== SUBTÍTULOS (SIEMPRE VISIBLES) =====
-    subtitulo_clip = crear_subtitulos(texto, duracion_total, (1080, 1920))
-    if subtitulo_clip:
-        video_final = CompositeVideoClip([video_final, subtitulo_clip])
-    else:
-        print("⚠️ No se pudieron agregar subtítulos.")
+    # Subtítulos por segmento
+    subtitulos_clips = []
+    if len(segmentos_texto) != len(clips):
+        while len(segmentos_texto) < len(clips):
+            segmentos_texto.append(segmentos_texto[-1])
+        segmentos_texto = segmentos_texto[:len(clips)]
+    
+    for i, seg_texto in enumerate(segmentos_texto):
+        if i >= len(clips):
+            break
+        duracion_seg = clips[i].duration
+        sub_clip = crear_subtitulo_por_segmento(seg_texto, duracion_seg, (1080, 1920))
+        if sub_clip:
+            start_time = sum(c.duration for c in clips[:i])
+            sub_clip = sub_clip.with_start(start_time)
+            subtitulos_clips.append(sub_clip)
+    
+    if subtitulos_clips:
+        video_final = CompositeVideoClip([video_final] + subtitulos_clips)
     
     if fondo_audio:
         audio_final = CompositeAudioClip([audio_clip, fondo_audio])
@@ -1025,7 +1034,7 @@ def main():
 
     estado = cargar_estado()
     
-    # POST
+    # --- POST ---
     tema_post = obtener_tema_no_repetido(temas, estado)
     print(f"📖 Tema POST seleccionado: {tema_post}")
 
@@ -1054,7 +1063,7 @@ def main():
     texto_final_post = agregar_cta_final(historia_post)
     print("✅ POST listo: Historia + Imagen + CTA")
 
-    # REEL
+    # --- REEL ---
     estado_temporal = {
         "publicados": estado.get("publicados", []) + [tema_post],
         "ultimo_tema": tema_post
