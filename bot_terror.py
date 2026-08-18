@@ -112,45 +112,29 @@ def descargar_musica_fondo():
     return None
 
 # ================================================================
-# 🖼️ GENERAR PLACEHOLDER LOCAL Y SUBIR A CLOUDINARY
+# 🖼️ GENERAR IMAGEN DE RESPALDO (sin texto feo)
 # ================================================================
-def generar_y_subir_placeholder(texto="Imagen no disponible", size=(1080, 1350)):
+def generar_imagen_respaldo(width=1080, height=1350):
+    """Genera una imagen simple con un gradiente oscuro y la sube a Cloudinary."""
     try:
-        img = Image.new("RGB", size, (20, 20, 20))
+        img = Image.new("RGB", (width, height), (15, 15, 30))
+        # Dibujar un gradiente simple (opcional)
         draw = ImageDraw.Draw(img)
-        try:
-            font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 80)
-        except:
-            font = ImageFont.load_default()
-        bbox = draw.textbbox((0, 0), texto, font=font)
-        x = (size[0] - (bbox[2]-bbox[0])) // 2
-        y = (size[1] - (bbox[3]-bbox[1])) // 2
-        draw.text((x, y), texto, fill="red", font=font)
-        path = f"placeholder_{random.randint(1000, 9999)}.jpg"
+        draw.rectangle([0, 0, width, height], fill=(15, 15, 30))
+        path = f"respaldo_{random.randint(1000,9999)}.jpg"
         img.save(path)
-        print(f"🖼️ Placeholder local generado: {path}")
-        
         if CLOUDINARY_DISPONIBLE:
-            print("📤 Subiendo placeholder a Cloudinary...")
-            result = upload(
-                path,
-                resource_type="image",
-                public_id=f"placeholder_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
-                overwrite=True
-            )
+            result = upload(path, resource_type="image", public_id=f"respaldo_{datetime.now().strftime('%Y%m%d_%H%M%S')}", overwrite=True)
             url = result.get('secure_url')
-            print(f"✅ Placeholder subido: {url}")
             os.remove(path)
             return url
         else:
-            print("⚠️ Cloudinary no disponible, placeholder local no se subirá")
-            return None
-    except Exception as e:
-        print(f"⚠️ Error generando/subiendo placeholder: {e}")
-        return None
+            return "https://via.placeholder.com/{width}x{height}/1a1a1a/303060?text="
+    except:
+        return "https://via.placeholder.com/{width}x{height}/1a1a1a/303060"
 
 # ================================================================
-# FUNCIONES AUXILIARES
+# FUNCIONES AUXILIARES (cargar_temas, estado, etc.)
 # ================================================================
 def cargar_temas():
     try:
@@ -197,9 +181,34 @@ def limpiar_texto_para_imagen(texto):
     return texto.strip()
 
 # ================================================================
-# 🧹 LIMPIAR TEXTO PARA TTS
+# 🧹 LIMPIAR TEXTO PARA TTS (convierte números y abreviaturas)
 # ================================================================
+def convertir_numero_a_palabras(numero):
+    """Convierte números a palabras en español (solo para números del 0 al 99)."""
+    unidades = ['cero', 'uno', 'dos', 'tres', 'cuatro', 'cinco', 'seis', 'siete', 'ocho', 'nueve']
+    decenas = ['', 'diez', 'veinte', 'treinta', 'cuarenta', 'cincuenta', 'sesenta', 'setenta', 'ochenta', 'noventa']
+    especiales = {11: 'once', 12: 'doce', 13: 'trece', 14: 'catorce', 15: 'quince', 16: 'dieciséis', 17: 'diecisiete', 18: 'dieciocho', 19: 'diecinueve'}
+    try:
+        num = int(numero)
+        if 0 <= num <= 9:
+            return unidades[num]
+        elif 10 <= num <= 19:
+            return especiales.get(num, decenas[num//10] + ' y ' + unidades[num%10])
+        elif 20 <= num <= 99:
+            if num % 10 == 0:
+                return decenas[num//10]
+            else:
+                return decenas[num//10] + ' y ' + unidades[num%10]
+        else:
+            return str(num)
+    except:
+        return str(num)
+
 def limpiar_caracteres_para_tts(texto):
+    """Elimina caracteres especiales, conserva ñ y acentos, convierte números a palabras."""
+    # Convertir números (solo números aislados)
+    texto = re.sub(r'\b(\d{1,2})\b', lambda m: convertir_numero_a_palabras(m.group(1)), texto)
+    # Mantener solo letras, números, espacios y signos básicos
     texto = re.sub(r'[^a-zA-ZáéíóúüñÁÉÍÓÚÜÑ0-9\s.,;:!?¿¡\-\'\"]', ' ', texto)
     texto = re.sub(r'[\U0001F600-\U0001F64F]', '', texto)
     texto = re.sub(r'[\U0001F300-\U0001F5FF]', '', texto)
@@ -254,7 +263,7 @@ REGLAS:
 - Si el texto menciona explícitamente el género (hombre/mujer), úsalo. Si no, infiere por el contexto.
 - Si menciona edad o época, calcula la edad actual aproximada.
 - Si menciona oficio o vestimenta, inclúyelo.
-- Identifica el AÑO o ÉPOCA en que sucede la historia. Si no se menciona, infiere uno lógico basado en el contexto (ej. si hay smartphones, es 2015+).
+- Identifica el AÑO o ÉPOCA en que sucede la historia. Si no se menciona, infiere uno lógico basado en el contexto.
 - Devuelve SOLO un JSON válido con estos campos:
   - "genero": "hombre" o "mujer"
   - "edad_aprox": número
@@ -292,7 +301,6 @@ Devuelve SOLO el JSON, sin explicaciones, sin markdown.
         respuesta = r.json()["choices"][0]["message"]["content"].strip()
         respuesta = re.sub(r"```json\s*", "", respuesta)
         respuesta = re.sub(r"```\s*", "", respuesta)
-        
         data = json.loads(respuesta, strict=False)
         print(f"🧑 Personaje detectado: {data.get('genero', '?')}, {data.get('edad_aprox', '?')} años | 🗓️ Época: {data.get('anio', '?')}")
         return data
@@ -333,7 +341,7 @@ DIRECTRICES_ENTIDAD = {
 }
 
 # ================================================================
-# 🎨 GENERAR PROMPT DE IMAGEN
+# 🎨 GENERAR PROMPT DE IMAGEN (con detección de época)
 # ================================================================
 def generar_prompt_imagen(historia, tema, personaje):
     tipo = detectar_tipo_entidad(tema)
@@ -404,7 +412,7 @@ Devuelve SOLO el prompt en inglés, directo, sin explicaciones.
         return f"Vertical 4:5 cinematic film still, dark atmospheric scene with volumetric fog, wide shot, no text"
 
 # ================================================================
-# 🛡️ FILTRAR PROMPT PARA AGNES
+# 🛡️ FILTRAR PROMPT PARA AGNES (más agresivo)
 # ================================================================
 def filtrar_prompt_para_agnes(prompt):
     palabras_prohibidas = [
@@ -567,7 +575,6 @@ Devuelve SOLO el resumen, sin títulos, sin hashtags, sin llamados a la acción.
         return " ".join(palabras[:100]) + "..."
 
 def dividir_resumen_en_segmentos(resumen, num_segmentos=3):
-    """Divide el resumen en segmentos basados en oraciones o palabras."""
     oraciones = re.split(r'(?<=[.!?])\s+', resumen)
     if len(oraciones) >= num_segmentos:
         segmentos = []
@@ -590,37 +597,45 @@ def dividir_resumen_en_segmentos(resumen, num_segmentos=3):
         return segmentos
 
 # ================================================================
-# 🖼️ GENERAR IMAGEN CON AGNES
+# 🖼️ GENERAR IMAGEN CON AGNES (CON REINTENTOS Y PROMPT NEUTRAL)
 # ================================================================
-def generar_imagen_agnes(prompt, width=1080, height=1350, intentos=5, espera_segundos=15):
-    prompt_limpio = filtrar_prompt_para_agnes(prompt[:800])
-    url = "https://apihub.agnes-ai.com/v1/images/generations"
-    headers = {"Authorization": f"Bearer {AGNES_API_KEY}", "Content-Type": "application/json"}
-    
-    negative = (
-        "close-up face, portrait, headshot, person filling frame, "
-        "deformed face, disfigured, mutated, bad anatomy, extra limbs, "
-        "extra fingers, asymmetrical eyes, malformed features, uncanny valley, "
-        "gaunt, emaciated, ugly, grotesque, gore, blood, "
-        "dilapidated, decrepit, run-down, crumbling, cracked walls, peeling paint, "
-        "moldy, musty, dusty, cobwebs, "
-        "sepia tone, monochrome, black and white, film grain, "
-        "duplicate people, cloned faces, multiple subjects, "
-        "dual face, split face, two faces, double face, mirror face, two heads, "
-        "cloned face, duplicate person, twin, twins, doppelganger, siamese, conjoined, "
-        "low quality, blurry, oversharpened, over-saturated, "
-        "text, letters, words, captions, subtitles, titles, watermarks, logos"
-    )
-    payload = {
-        "model": "agnes-image-2.1-flash",
-        "prompt": prompt_limpio,
-        "negative_prompt": negative,
-        "width": width,
-        "height": height,
-        "num_images": 1,
-    }
+def generar_imagen_agnes(prompt, width=1080, height=1350, intentos=6, espera_segundos=15):
+    prompt_original = prompt
     for intento in range(1, intentos + 1):
         print(f"🎨 Intento {intento}/{intentos} generando imagen...")
+        # En cada reintento, ir limpiando más el prompt
+        if intento > 1:
+            # Neutralizar más agresivamente en cada reintento
+            prompt = filtrar_prompt_para_agnes(prompt_original)
+        if intento > 3:
+            # Si sigue fallando, usar un prompt muy genérico
+            prompt = "Cinematic vertical 4:5 landscape, atmospheric dark scene with subtle moonlight, mysterious mood, no people, no text, no violence"
+        
+        prompt_limpio = prompt[:800]
+        url = "https://apihub.agnes-ai.com/v1/images/generations"
+        headers = {"Authorization": f"Bearer {AGNES_API_KEY}", "Content-Type": "application/json"}
+        negative = (
+            "close-up face, portrait, headshot, person filling frame, "
+            "deformed face, disfigured, mutated, bad anatomy, extra limbs, "
+            "extra fingers, asymmetrical eyes, malformed features, uncanny valley, "
+            "gaunt, emaciated, ugly, grotesque, gore, blood, "
+            "dilapidated, decrepit, run-down, crumbling, cracked walls, peeling paint, "
+            "moldy, musty, dusty, cobwebs, "
+            "sepia tone, monochrome, black and white, film grain, "
+            "duplicate people, cloned faces, multiple subjects, "
+            "dual face, split face, two faces, double face, mirror face, two heads, "
+            "cloned face, duplicate person, twin, twins, doppelganger, siamese, conjoined, "
+            "low quality, blurry, oversharpened, over-saturated, "
+            "text, letters, words, captions, subtitles, titles, watermarks, logos"
+        )
+        payload = {
+            "model": "agnes-image-2.1-flash",
+            "prompt": prompt_limpio,
+            "negative_prompt": negative,
+            "width": width,
+            "height": height,
+            "num_images": 1,
+        }
         try:
             response = requests.post(url, headers=headers, json=payload, timeout=90)
             if response.status_code == 200:
@@ -632,29 +647,21 @@ def generar_imagen_agnes(prompt, width=1080, height=1350, intentos=5, espera_seg
                 error_msg = response.text[:200]
                 print(f"❌ Error en Agnes: {response.status_code} - {error_msg}")
                 if "content_policy_violation" in error_msg:
-                    print("⚠️ Violación de política de contenido.")
-                    break
+                    print(f"⚠️ Violación de política (intento {intento}). Reintentando con prompt más neutral...")
+                    # No romper el bucle, seguir intentando
+                    time.sleep(espera_segundos)
+                    continue
+                else:
+                    # Otro tipo de error (timeout, etc.)
+                    time.sleep(espera_segundos)
         except Exception as e:
             print(f"❌ Error de conexión: {e}")
-        if intento < intentos:
-            print(f"⏳ Esperando {espera_segundos}s...")
             time.sleep(espera_segundos)
-    print("⚠️ Agnes falló. Generando placeholder y subiendo a Cloudinary...")
-    texto_placeholder = "Imagen no disponible"
-    if width == 1080 and height == 1920:
-        texto_placeholder = "Reel"
-    elif width == 1080 and height == 1350:
-        texto_placeholder = "Post"
-    placeholder_url = generar_y_subir_placeholder(texto_placeholder, (width, height))
-    if placeholder_url:
-        return placeholder_url
-    else:
-        fallback_url = f"https://via.placeholder.com/{width}x{height}/1a1a1a/ff0000?text={texto_placeholder}"
-        print(f"⚠️ Usando URL fallback: {fallback_url}")
-        return fallback_url
+    print("⚠️ Agnes falló tras todos los intentos. Se usará imagen de respaldo.")
+    return None
 
 # ================================================================
-# 🎤 GENERAR AUDIO CON EDGE-TTS
+# 🎤 GENERAR AUDIO CON EDGE-TTS (con limpieza mejorada)
 # ================================================================
 def generar_audio_edge_tts(texto, index):
     global CONFIG_VOZ_ACTUAL
@@ -754,7 +761,7 @@ def aplicar_zoom_lento(clip, zoom_final=1.10):
     return clip.transform(efecto)
 
 # ================================================================
-# 🎬 CREAR VIDEO CON MÚLTIPLES ESCENAS, MÚSICA Y SUBTÍTULOS
+# 🎬 CREAR VIDEO CON MÚLTIPLES ESCENAS, MÚSICA Y SUBTÍTULOS (con fallback inteligente)
 # ================================================================
 def crear_y_subir_video(texto, imagen_url, historia_completa, tema, personaje, num_escenas=3):
     if not CLOUDINARY_DISPONIBLE:
@@ -775,22 +782,26 @@ def crear_y_subir_video(texto, imagen_url, historia_completa, tema, personaje, n
     for i, seg in enumerate(segmentos_texto):
         prompt_seg = f"Escena de la historia: {seg}\n\n{historia_completa[:300]}"
         img_prompt = generar_prompt_imagen(prompt_seg, tema, personaje)
-        img_url = generar_imagen_agnes(img_prompt, width=1080, height=1920, intentos=2, espera_segundos=10)
+        img_url = generar_imagen_agnes(img_prompt, width=1080, height=1920, intentos=4, espera_segundos=10)
         if img_url:
             urls_imagenes.append(img_url)
             print(f"✅ Imagen {i+1}/{len(segmentos_texto)} generada")
         else:
+            # Fallback: usar la imagen general del Reel (que sabemos que existe)
             if imagen_url:
                 urls_imagenes.append(imagen_url)
-                print(f"⚠️ Imagen {i+1} falló, usando imagen general del Reel")
+                print(f"⚠️ Imagen {i+1} falló, usando imagen de respaldo del Reel")
             else:
-                placeholder = generar_y_subir_placeholder(f"Escena {i+1}", (1080, 1920))
-                urls_imagenes.append(placeholder if placeholder else imagen_url)
+                # Último recurso: generar una imagen de respaldo simple
+                respaldo = generar_imagen_respaldo(1080, 1920)
+                urls_imagenes.append(respaldo)
+                print(f"⚠️ Imagen {i+1} falló, usando imagen de respaldo genérica")
     
+    # Asegurar al menos 3 imágenes (usando respaldo si falta)
     while len(urls_imagenes) < 3:
-        placeholder = generar_y_subir_placeholder(f"Escena {len(urls_imagenes)+1}", (1080, 1920))
-        urls_imagenes.append(placeholder if placeholder else "https://via.placeholder.com/1080x1920/1a1a1a/ff0000?text=Escena")
+        urls_imagenes.append(imagen_url if imagen_url else generar_imagen_respaldo(1080, 1920))
     
+    # Limitar a 5 escenas
     if len(urls_imagenes) > 5:
         urls_imagenes = urls_imagenes[:5]
     
@@ -834,9 +845,10 @@ def crear_y_subir_video(texto, imagen_url, historia_completa, tema, personaje, n
             with open(img_path, "wb") as f:
                 f.write(img_data)
         else:
-            placeholder = generar_y_subir_placeholder(f"Escena {i+1}", (1080, 1920))
-            if placeholder:
-                img_data = descargar_imagen_con_retry(placeholder)
+            # Si no se puede descargar, usar la imagen de respaldo
+            respaldo = generar_imagen_respaldo(1080, 1920)
+            if respaldo:
+                img_data = descargar_imagen_con_retry(respaldo)
                 if img_data:
                     img_path = f"temp_scene_{i}.jpg"
                     with open(img_path, "wb") as f:
@@ -856,20 +868,26 @@ def crear_y_subir_video(texto, imagen_url, historia_completa, tema, personaje, n
             continue
     
     if not clips:
-        print("❌ No se pudieron crear clips. Usando imagen única.")
-        img_data = descargar_imagen_con_retry(imagen_url)
-        if img_data:
-            img_path = "temp_fallback.jpg"
-            with open(img_path, "wb") as f:
-                f.write(img_data)
-            clip = ImageClip(img_path).resized((1080, 1920))
-            clip = clip.with_duration(duracion_total)
-            clip = aplicar_zoom_lento(clip, zoom_final=1.10)
-            clips = [clip]
+        print("❌ No se pudieron crear clips. Usando imagen única de respaldo.")
+        respaldo_url = generar_imagen_respaldo(1080, 1920)
+        if respaldo_url:
+            img_data = descargar_imagen_con_retry(respaldo_url)
+            if img_data:
+                img_path = "temp_fallback.jpg"
+                with open(img_path, "wb") as f:
+                    f.write(img_data)
+                clip = ImageClip(img_path).resized((1080, 1920))
+                clip = clip.with_duration(duracion_total)
+                clip = aplicar_zoom_lento(clip, zoom_final=1.10)
+                clips = [clip]
+            else:
+                print("❌ No se pudo generar ni siquiera la imagen de respaldo.")
+                return None
     
     video_final = concatenate_videoclips(clips, method="compose")
     video_final = video_final.with_duration(duracion_total)
     
+    # Descargar fuente para subtítulos
     fuente_path = "DejaVuSans.ttf"
     if not os.path.exists(fuente_path):
         try:
@@ -898,7 +916,6 @@ def crear_y_subir_video(texto, imagen_url, historia_completa, tema, personaje, n
             linea_actual = palabra + " "
     if linea_actual:
         lineas_texto.append(linea_actual.strip())
-    
     texto_subtitulo = "\n".join(lineas_texto)
     
     subtitulo_clip = None
@@ -964,7 +981,7 @@ def crear_y_subir_video(texto, imagen_url, historia_completa, tema, personaje, n
                 pass
 
 # ================================================================
-# MAIN (MODIFICADO PARA GENERAR RELATOS DIFERENTES)
+# MAIN (con doble historia y fallbacks mejorados)
 # ================================================================
 def main():
     print(f"🎤 Voz inicial: {CONFIG_VOZ_ACTUAL['voz']} ({CONFIG_VOZ_ACTUAL['velocidad']})")
@@ -1003,10 +1020,10 @@ def main():
 
     print("🎨 Generando imagen para POST (4:5)...")
     prompt_post = generar_prompt_imagen(historia_post, tema_post, personaje_post)
-    image_post_url = generar_imagen_agnes(prompt_post, width=1080, height=1350, intentos=5)
+    image_post_url = generar_imagen_agnes(prompt_post, width=1080, height=1350, intentos=6)
     if not image_post_url:
-        print("❌ No se pudo obtener imagen para post. Abortando.")
-        sys.exit(1)
+        print("⚠️ Agnes falló para el post. Usando imagen de respaldo...")
+        image_post_url = generar_imagen_respaldo(1080, 1350)
 
     texto_final_post = agregar_cta_final(historia_post)
     print("✅ POST listo: Historia + Imagen + CTA")
@@ -1014,7 +1031,6 @@ def main():
     # ==========================================
     # 2. GENERAR REEL (Relato B - DIFERENTE)
     # ==========================================
-    # Evitar que el tema del Reel sea el mismo que el del Post
     estado_temporal = {
         "publicados": estado.get("publicados", []) + [tema_post],
         "ultimo_tema": tema_post
@@ -1041,24 +1057,27 @@ def main():
     resumen_reel = generar_resumen_reel(historia_reel)
     print(f"✅ Resumen Reel: {len(resumen_reel.split())} palabras")
 
-    # Imagen de respaldo para el Reel (por si fallan las escenas)
+    # Imagen de respaldo para el Reel (si fallan las escenas)
     print("🎨 Generando imagen de respaldo para Reel (9:16)...")
     prompt_reel = generar_prompt_imagen(historia_reel, tema_reel, personaje_reel).replace("4:5", "9:16")
-    image_reel_url = generar_imagen_agnes(prompt_reel, width=1080, height=1920, intentos=3)
+    image_reel_url = generar_imagen_agnes(prompt_reel, width=1080, height=1920, intentos=4)
     if not image_reel_url:
-        image_reel_url = generar_y_subir_placeholder("Reel", (1080, 1920)) or "https://via.placeholder.com/1080x1920/1a1a1a/ff0000?text=Reel"
+        print("⚠️ No se pudo generar imagen de respaldo para el Reel. Se usará una genérica.")
+        image_reel_url = generar_imagen_respaldo(1080, 1920)
 
-    # Crear video con múltiples escenas (imágenes generadas a partir de historia_reel)
+    # Crear video con múltiples escenas
     reel_video_url = None
     if CLOUDINARY_DISPONIBLE:
         reel_video_url = crear_y_subir_video(
             texto=resumen_reel,
             imagen_url=image_reel_url,
-            historia_completa=historia_reel,  # <--- Usamos la historia del REEL
-            tema=tema_reel,                   # <--- Usamos el tema del REEL
-            personaje=personaje_reel,         # <--- Usamos el personaje del REEL
+            historia_completa=historia_reel,
+            tema=tema_reel,
+            personaje=personaje_reel,
             num_escenas=3
         )
+        if not reel_video_url:
+            print("⚠️ Falló la creación/subida del video.")
     else:
         print("⏭️ Cloudinary no configurado, omitiendo Reel.")
 
@@ -1083,7 +1102,6 @@ def main():
         r = requests.post(MAKE_WEBHOOK_URL_TERROR, json=payload, timeout=60)
         if r.status_code in [200, 201, 202]:
             print("✅ Enviado a Make correctamente")
-            # Guardar AMBOS temas como publicados
             if tema_post not in estado.get("publicados", []):
                 estado["publicados"].append(tema_post)
             if tema_reel not in estado.get("publicados", []):
