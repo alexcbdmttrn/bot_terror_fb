@@ -112,15 +112,11 @@ def descargar_musica_fondo():
     return None
 
 # ================================================================
-# 🖼️ GENERAR IMAGEN DE RESPALDO (sin texto feo)
+# 🖼️ GENERAR IMAGEN DE RESPALDO (sin texto)
 # ================================================================
 def generar_imagen_respaldo(width=1080, height=1350):
-    """Genera una imagen simple con un gradiente oscuro y la sube a Cloudinary."""
     try:
         img = Image.new("RGB", (width, height), (15, 15, 30))
-        # Dibujar un gradiente simple (opcional)
-        draw = ImageDraw.Draw(img)
-        draw.rectangle([0, 0, width, height], fill=(15, 15, 30))
         path = f"respaldo_{random.randint(1000,9999)}.jpg"
         img.save(path)
         if CLOUDINARY_DISPONIBLE:
@@ -129,12 +125,12 @@ def generar_imagen_respaldo(width=1080, height=1350):
             os.remove(path)
             return url
         else:
-            return "https://via.placeholder.com/{width}x{height}/1a1a1a/303060?text="
+            return "https://via.placeholder.com/{width}x{height}/1a1a1a/303060"
     except:
         return "https://via.placeholder.com/{width}x{height}/1a1a1a/303060"
 
 # ================================================================
-# FUNCIONES AUXILIARES (cargar_temas, estado, etc.)
+# FUNCIONES AUXILIARES
 # ================================================================
 def cargar_temas():
     try:
@@ -181,10 +177,9 @@ def limpiar_texto_para_imagen(texto):
     return texto.strip()
 
 # ================================================================
-# 🧹 LIMPIAR TEXTO PARA TTS (convierte números y abreviaturas)
+# 🧹 LIMPIAR TEXTO PARA TTS (convierte números a palabras)
 # ================================================================
 def convertir_numero_a_palabras(numero):
-    """Convierte números a palabras en español (solo para números del 0 al 99)."""
     unidades = ['cero', 'uno', 'dos', 'tres', 'cuatro', 'cinco', 'seis', 'siete', 'ocho', 'nueve']
     decenas = ['', 'diez', 'veinte', 'treinta', 'cuarenta', 'cincuenta', 'sesenta', 'setenta', 'ochenta', 'noventa']
     especiales = {11: 'once', 12: 'doce', 13: 'trece', 14: 'catorce', 15: 'quince', 16: 'dieciséis', 17: 'diecisiete', 18: 'dieciocho', 19: 'diecinueve'}
@@ -205,10 +200,7 @@ def convertir_numero_a_palabras(numero):
         return str(num)
 
 def limpiar_caracteres_para_tts(texto):
-    """Elimina caracteres especiales, conserva ñ y acentos, convierte números a palabras."""
-    # Convertir números (solo números aislados)
     texto = re.sub(r'\b(\d{1,2})\b', lambda m: convertir_numero_a_palabras(m.group(1)), texto)
-    # Mantener solo letras, números, espacios y signos básicos
     texto = re.sub(r'[^a-zA-ZáéíóúüñÁÉÍÓÚÜÑ0-9\s.,;:!?¿¡\-\'\"]', ' ', texto)
     texto = re.sub(r'[\U0001F600-\U0001F64F]', '', texto)
     texto = re.sub(r'[\U0001F300-\U0001F5FF]', '', texto)
@@ -341,7 +333,7 @@ DIRECTRICES_ENTIDAD = {
 }
 
 # ================================================================
-# 🎨 GENERAR PROMPT DE IMAGEN (con detección de época)
+# 🎨 GENERAR PROMPT DE IMAGEN
 # ================================================================
 def generar_prompt_imagen(historia, tema, personaje):
     tipo = detectar_tipo_entidad(tema)
@@ -412,7 +404,7 @@ Devuelve SOLO el prompt en inglés, directo, sin explicaciones.
         return f"Vertical 4:5 cinematic film still, dark atmospheric scene with volumetric fog, wide shot, no text"
 
 # ================================================================
-# 🛡️ FILTRAR PROMPT PARA AGNES (más agresivo)
+# 🛡️ FILTRAR PROMPT PARA AGNES
 # ================================================================
 def filtrar_prompt_para_agnes(prompt):
     palabras_prohibidas = [
@@ -535,7 +527,7 @@ def agregar_cta_final(texto):
     return texto.strip() + cta + hashtags + leyenda_ia
 
 # ================================================================
-# 📝 GENERAR RESUMEN PARA REEL (y dividirlo en segmentos)
+# 📝 GENERAR RESUMEN PARA REEL
 # ================================================================
 def generar_resumen_reel(historia_completa):
     prompt = f"""Resume el siguiente relato de terror en un texto CORTO y ATMOSFÉRICO de EXACTAMENTE 100 palabras, ideal para un Reel de Facebook.
@@ -597,18 +589,15 @@ def dividir_resumen_en_segmentos(resumen, num_segmentos=3):
         return segmentos
 
 # ================================================================
-# 🖼️ GENERAR IMAGEN CON AGNES (CON REINTENTOS Y PROMPT NEUTRAL)
+# 🖼️ GENERAR IMAGEN CON AGNES
 # ================================================================
 def generar_imagen_agnes(prompt, width=1080, height=1350, intentos=6, espera_segundos=15):
     prompt_original = prompt
     for intento in range(1, intentos + 1):
         print(f"🎨 Intento {intento}/{intentos} generando imagen...")
-        # En cada reintento, ir limpiando más el prompt
         if intento > 1:
-            # Neutralizar más agresivamente en cada reintento
             prompt = filtrar_prompt_para_agnes(prompt_original)
         if intento > 3:
-            # Si sigue fallando, usar un prompt muy genérico
             prompt = "Cinematic vertical 4:5 landscape, atmospheric dark scene with subtle moonlight, mysterious mood, no people, no text, no violence"
         
         prompt_limpio = prompt[:800]
@@ -647,12 +636,10 @@ def generar_imagen_agnes(prompt, width=1080, height=1350, intentos=6, espera_seg
                 error_msg = response.text[:200]
                 print(f"❌ Error en Agnes: {response.status_code} - {error_msg}")
                 if "content_policy_violation" in error_msg:
-                    print(f"⚠️ Violación de política (intento {intento}). Reintentando con prompt más neutral...")
-                    # No romper el bucle, seguir intentando
+                    print(f"⚠️ Violación de política (intento {intento}). Reintentando...")
                     time.sleep(espera_segundos)
                     continue
                 else:
-                    # Otro tipo de error (timeout, etc.)
                     time.sleep(espera_segundos)
         except Exception as e:
             print(f"❌ Error de conexión: {e}")
@@ -661,7 +648,7 @@ def generar_imagen_agnes(prompt, width=1080, height=1350, intentos=6, espera_seg
     return None
 
 # ================================================================
-# 🎤 GENERAR AUDIO CON EDGE-TTS (con limpieza mejorada)
+# 🎤 GENERAR AUDIO CON EDGE-TTS
 # ================================================================
 def generar_audio_edge_tts(texto, index):
     global CONFIG_VOZ_ACTUAL
@@ -739,7 +726,7 @@ def generar_audio_edge_tts(texto, index):
     return None
 
 # ================================================================
-# 🎥 ZOOM LENTO (Ken Burns Effect)
+# 🎥 ZOOM LENTO
 # ================================================================
 def aplicar_zoom_lento(clip, zoom_final=1.10):
     dur = clip.duration
@@ -761,7 +748,102 @@ def aplicar_zoom_lento(clip, zoom_final=1.10):
     return clip.transform(efecto)
 
 # ================================================================
-# 🎬 CREAR VIDEO CON MÚLTIPLES ESCENAS, MÚSICA Y SUBTÍTULOS (con fallback inteligente)
+# 🎬 SUBTÍTULOS CON FALLBACK PIL (SIEMPRE VISIBLES)
+# ================================================================
+def crear_subtitulos(texto, duracion, video_size=(1080, 1920)):
+    """
+    Crea un clip de subtítulos. Intenta TextClip primero; si falla, usa PIL para generar una imagen de texto.
+    """
+    # Dividir en líneas
+    lineas = []
+    palabras = texto.split()
+    linea = ""
+    for p in palabras:
+        if len(linea) + len(p) + 1 <= 35:
+            linea += p + " "
+        else:
+            lineas.append(linea.strip())
+            linea = p + " "
+    if linea:
+        lineas.append(linea.strip())
+    texto_final = "\n".join(lineas)
+
+    # Intentar con TextClip y fuentes comunes
+    for fuente in ['Arial', 'DejaVu-Sans', 'sans-serif', None]:
+        try:
+            txt_clip = TextClip(
+                text=texto_final,
+                font=fuente,
+                font_size=40,
+                color='white',
+                stroke_color='black',
+                stroke_width=2,
+                method='caption',
+                size=(video_size[0] * 0.9, video_size[1] * 0.8),
+                text_align='center',
+            )
+            txt_clip = txt_clip.with_duration(duracion).with_position(('center', 'center'))
+            print(f"✅ Subtítulos creados con fuente: {fuente or 'default'}")
+            return txt_clip
+        except Exception as e:
+            print(f"⚠️ TextClip con fuente {fuente} falló: {e}")
+            continue
+
+    # Fallback con PIL
+    print("🔄 Usando PIL para crear subtítulos...")
+    try:
+        # Crear imagen de texto
+        img_width = video_size[0]
+        # Crear una imagen transparente para el texto
+        img = Image.new("RGBA", (img_width, int(video_size[1] * 0.7)), (0, 0, 0, 0))
+        draw = ImageDraw.Draw(img)
+        # Usar una fuente disponible en el sistema (DejaVu-Sans o Arial)
+        font_paths = [
+            "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+            "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
+            "/usr/share/fonts/truetype/arial/arial.ttf",
+            "/System/Library/Fonts/Helvetica.ttc",
+        ]
+        font = None
+        for path in font_paths:
+            if os.path.exists(path):
+                try:
+                    font = ImageFont.truetype(path, 40)
+                    break
+                except:
+                    continue
+        if font is None:
+            font = ImageFont.load_default()
+        
+        # Dibujar texto con borde negro
+        y_offset = 50
+        for linea in lineas:
+            bbox = draw.textbbox((0, 0), linea, font=font)
+            text_width = bbox[2] - bbox[0]
+            text_height = bbox[3] - bbox[1]
+            x = (img_width - text_width) // 2
+            # Borde negro
+            for dx, dy in [(-2,-2), (-2,0), (-2,2), (0,-2), (0,2), (2,-2), (2,0), (2,2)]:
+                draw.text((x+dx, y_offset+dy), linea, fill='black', font=font)
+            draw.text((x, y_offset), linea, fill='white', font=font)
+            y_offset += text_height + 10
+        
+        # Convertir a clip
+        img_path = f"subtitulos_{random.randint(1000,9999)}.png"
+        img.save(img_path)
+        sub_clip = ImageClip(img_path).with_duration(duracion).with_position(('center', 'center'))
+        # Limpiar archivo temporal después de crear el clip (no se puede eliminar ahora, pero se eliminará después)
+        # Programar eliminación
+        import atexit
+        atexit.register(lambda p=img_path: os.remove(p) if os.path.exists(p) else None)
+        print("✅ Subtítulos creados con PIL")
+        return sub_clip
+    except Exception as e:
+        print(f"❌ Error crítico creando subtítulos con PIL: {e}")
+        return None
+
+# ================================================================
+# 🎬 CREAR VIDEO CON MÚLTIPLES ESCENAS, MÚSICA Y SUBTÍTULOS
 # ================================================================
 def crear_y_subir_video(texto, imagen_url, historia_completa, tema, personaje, num_escenas=3):
     if not CLOUDINARY_DISPONIBLE:
@@ -787,21 +869,17 @@ def crear_y_subir_video(texto, imagen_url, historia_completa, tema, personaje, n
             urls_imagenes.append(img_url)
             print(f"✅ Imagen {i+1}/{len(segmentos_texto)} generada")
         else:
-            # Fallback: usar la imagen general del Reel (que sabemos que existe)
             if imagen_url:
                 urls_imagenes.append(imagen_url)
                 print(f"⚠️ Imagen {i+1} falló, usando imagen de respaldo del Reel")
             else:
-                # Último recurso: generar una imagen de respaldo simple
                 respaldo = generar_imagen_respaldo(1080, 1920)
                 urls_imagenes.append(respaldo)
                 print(f"⚠️ Imagen {i+1} falló, usando imagen de respaldo genérica")
     
-    # Asegurar al menos 3 imágenes (usando respaldo si falta)
     while len(urls_imagenes) < 3:
         urls_imagenes.append(imagen_url if imagen_url else generar_imagen_respaldo(1080, 1920))
     
-    # Limitar a 5 escenas
     if len(urls_imagenes) > 5:
         urls_imagenes = urls_imagenes[:5]
     
@@ -845,7 +923,6 @@ def crear_y_subir_video(texto, imagen_url, historia_completa, tema, personaje, n
             with open(img_path, "wb") as f:
                 f.write(img_data)
         else:
-            # Si no se puede descargar, usar la imagen de respaldo
             respaldo = generar_imagen_respaldo(1080, 1920)
             if respaldo:
                 img_data = descargar_imagen_con_retry(respaldo)
@@ -887,61 +964,12 @@ def crear_y_subir_video(texto, imagen_url, historia_completa, tema, personaje, n
     video_final = concatenate_videoclips(clips, method="compose")
     video_final = video_final.with_duration(duracion_total)
     
-    # Descargar fuente para subtítulos
-    fuente_path = "DejaVuSans.ttf"
-    if not os.path.exists(fuente_path):
-        try:
-            print("📥 Descargando fuente DejaVuSans.ttf...")
-            fuente_url = "https://github.com/dejavu-fonts/dejavu-fonts/raw/master/ttf/DejaVuSans.ttf"
-            r = requests.get(fuente_url, timeout=30)
-            if r.status_code == 200:
-                with open(fuente_path, "wb") as f:
-                    f.write(r.content)
-                print("✅ Fuente descargada")
-            else:
-                print("⚠️ No se pudo descargar fuente, se omitirán subtítulos")
-                fuente_path = None
-        except Exception as e:
-            print(f"⚠️ Error descargando fuente: {e}")
-            fuente_path = None
-    
-    lineas_texto = []
-    palabras = texto.split()
-    linea_actual = ""
-    for palabra in palabras:
-        if len(linea_actual) + len(palabra) + 1 <= 35:
-            linea_actual += (palabra + " ")
-        else:
-            lineas_texto.append(linea_actual.strip())
-            linea_actual = palabra + " "
-    if linea_actual:
-        lineas_texto.append(linea_actual.strip())
-    texto_subtitulo = "\n".join(lineas_texto)
-    
-    subtitulo_clip = None
-    if fuente_path and os.path.exists(fuente_path):
-        try:
-            subtitulo_clip = TextClip(
-                text=texto_subtitulo,
-                font=fuente_path,
-                font_size=36,
-                color='white',
-                stroke_color='black',
-                stroke_width=2,
-                method='caption',
-                size=(1000, 1800),
-                text_align='center',
-            )
-            subtitulo_clip = subtitulo_clip.with_duration(duracion_total).with_position('center')
-            print("✅ Subtítulos agregados con fuente descargada")
-        except Exception as e:
-            print(f"⚠️ Error creando subtítulos: {e}")
-            subtitulo_clip = None
-    else:
-        print("⚠️ Sin fuente, no se agregaron subtítulos")
-    
+    # ===== SUBTÍTULOS (SIEMPRE VISIBLES) =====
+    subtitulo_clip = crear_subtitulos(texto, duracion_total, (1080, 1920))
     if subtitulo_clip:
         video_final = CompositeVideoClip([video_final, subtitulo_clip])
+    else:
+        print("⚠️ No se pudieron agregar subtítulos.")
     
     if fondo_audio:
         audio_final = CompositeAudioClip([audio_clip, fondo_audio])
@@ -981,7 +1009,7 @@ def crear_y_subir_video(texto, imagen_url, historia_completa, tema, personaje, n
                 pass
 
 # ================================================================
-# MAIN (con doble historia y fallbacks mejorados)
+# MAIN
 # ================================================================
 def main():
     print(f"🎤 Voz inicial: {CONFIG_VOZ_ACTUAL['voz']} ({CONFIG_VOZ_ACTUAL['velocidad']})")
@@ -997,9 +1025,7 @@ def main():
 
     estado = cargar_estado()
     
-    # ==========================================
-    # 1. GENERAR POST (Relato A)
-    # ==========================================
+    # POST
     tema_post = obtener_tema_no_repetido(temas, estado)
     print(f"📖 Tema POST seleccionado: {tema_post}")
 
@@ -1028,9 +1054,7 @@ def main():
     texto_final_post = agregar_cta_final(historia_post)
     print("✅ POST listo: Historia + Imagen + CTA")
 
-    # ==========================================
-    # 2. GENERAR REEL (Relato B - DIFERENTE)
-    # ==========================================
+    # REEL
     estado_temporal = {
         "publicados": estado.get("publicados", []) + [tema_post],
         "ultimo_tema": tema_post
@@ -1057,7 +1081,6 @@ def main():
     resumen_reel = generar_resumen_reel(historia_reel)
     print(f"✅ Resumen Reel: {len(resumen_reel.split())} palabras")
 
-    # Imagen de respaldo para el Reel (si fallan las escenas)
     print("🎨 Generando imagen de respaldo para Reel (9:16)...")
     prompt_reel = generar_prompt_imagen(historia_reel, tema_reel, personaje_reel).replace("4:5", "9:16")
     image_reel_url = generar_imagen_agnes(prompt_reel, width=1080, height=1920, intentos=4)
@@ -1065,7 +1088,6 @@ def main():
         print("⚠️ No se pudo generar imagen de respaldo para el Reel. Se usará una genérica.")
         image_reel_url = generar_imagen_respaldo(1080, 1920)
 
-    # Crear video con múltiples escenas
     reel_video_url = None
     if CLOUDINARY_DISPONIBLE:
         reel_video_url = crear_y_subir_video(
@@ -1081,13 +1103,9 @@ def main():
     else:
         print("⏭️ Cloudinary no configurado, omitiendo Reel.")
 
-    # Descripción del Reel basada en el Relato B
     hashtags_texto = "#LeyendasMexicanas #Terror #Misterio #Paranormal #Mexico"
     descripcion_reel = f"🌙 {titulo_reel}\n\n{hashtags_texto}\n\n_Imágenes y voz generados con IA._"
 
-    # ==========================================
-    # 3. ENVIAR A MAKE
-    # ==========================================
     payload = {
         "post_message": texto_final_post,
         "post_image": image_post_url,
