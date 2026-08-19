@@ -363,12 +363,10 @@ Devuelve SOLO el prompt en inglés, sin explicaciones, directo y concreto.
         r = requests.post(url, headers=headers, json=payload, timeout=60)
         r.raise_for_status()
         prompt_imagen = r.json()["choices"][0]["message"]["content"].strip()
-        # Limpiar posibles etiquetas de markdown
         prompt_imagen = re.sub(r'["\']', '', prompt_imagen)
         prompt_imagen = prompt_imagen.strip()
         if not prompt_imagen.endswith('.'):
             prompt_imagen += '.'
-        # Añadir sufijo seguro
         prompt_imagen += " vertical 4:5, realistic photography, no horror, no violence, no ghosts, no blood, no text."
         return prompt_imagen
     except Exception as e:
@@ -417,9 +415,7 @@ def reescribir_prompt_seguro(prompt):
     prompt_limpio = prompt
     for patron, sustituto in reemplazos.items():
         prompt_limpio = re.sub(patron, sustituto, prompt_limpio, flags=re.IGNORECASE)
-    # Eliminar múltiples espacios
     prompt_limpio = re.sub(r'\s+', ' ', prompt_limpio).strip()
-    # Asegurar que no contenga palabras prohibidas residuales
     palabras_prohibidas = [
         "gore", "blood", "bleeding", "wound", "injury", "mutilated", "disfigured",
         "corpse", "dead", "death", "dying", "kill", "murder", "assassination",
@@ -443,39 +439,44 @@ def reescribir_prompt_seguro(prompt):
         prompt_limpio = re.sub(rf'\b{palabra}\b', '', prompt_limpio, flags=re.IGNORECASE)
     prompt_limpio = re.sub(r'\s+', ' ', prompt_limpio).strip()
     if len(prompt_limpio.split()) < 8:
-        # Si quedó muy corto, usar uno genérico
         return "Vertical 4:5 cinematic photograph of a quiet urban street at night with fog and streetlights, realistic style, no text."
     return prompt_limpio
 
 def filtrar_prompt_para_agnes(prompt):
-    """Aplica el reemplazo de sinónimos y elimina palabras prohibidas."""
     return reescribir_prompt_seguro(prompt)
 
 # ================================================================
-# 📖 GENERAR HISTORIA COMPLETA
+# 📖 GENERAR HISTORIA COMPLETA (CON GANCHO, RESTRICCIÓN Y TÍTULO DE CURIOSIDAD)
 # ================================================================
 def generar_historia_completa(tema):
-    prompt = f"""Eres un INVESTIGADOR DE LEYENDAS URBANAS Y TRADICIÓN ORAL MEXICANA.
+    prompt = f"""Eres un MAESTRO DE LA NARRATIVA DE TERROR y un EXPERTO EN REDES SOCIALES.
 
-Tu tarea es DOCUMENTAR un testimonio COMPLETO y AUTOCONCLUSIVO sobre:
-"{tema}"
+Tu tarea es crear una historia de terror CORTA y AUTOCONCLUSIVA basada en el tema: "{tema}", pero con un GANCHO IMPOSIBLE DE IGNORAR.
 
 🚨 REGLAS ESTRICTAS:
-- Ambientación: Mención EXACTA del lugar en México.
-- Narración en PRIMERA PERSONA, como si la persona te lo estuviera contando a ti.
-- El narrador debe tener un PERFIL ÚNICO Y DIVERSO en cada historia. Varía el género, la edad (entre 20 y 70 años) y el oficio. NO repitas el mismo perfil en historias consecutivas.
-- Extensión: ENTRE 300 y 340 palabras.
-- ESTRUCTURA OBLIGATORIA en PÁRRAFOS (cada párrafo separado por una línea en blanco):
-  1. GANCHO inicial impactante (1-2 frases)
-  2. CONTEXTO: quién es el narrador, dónde y cuándo ocurrió
-  3. DESARROLLO: los hechos sobrenaturales paso a paso, con detalles sensoriales (2-3 párrafos)
-  4. CLÍMAX: el momento más intenso (1 párrafo)
-  5. DESENLACE: cómo terminó todo y qué le quedó al narrador (1 párrafo)
-- Tono NATURAL Y COLOQUIAL, como alguien contando su experiencia real.
-- Detalles específicos: nombres de lugares reales, años concretos, oficios reales.
+- Ambientación: EXACTA y realista (México).
+- Narración en PRIMERA PERSONA, tono coloquial.
+- El narrador debe tener un PERFIL ÚNICO (género, edad, oficio).
+- Extensión: 300-340 palabras.
+- ESTRUCTURA: 1. Gancho en el título 2. Contexto 3. Desarrollo 4. Clímax 5. Desenlace
+
+🎯 REGLAS DE ORO PARA EL ÉXITO EN REDES:
+1. TÍTULO: NO uses un título descriptivo ("El fantasma de..."). Usa un GANCHO que genere CURIOSIDAD o PREGUNTA. Fórmulas:
+   - "Lo que vi en [LUGAR] a las [HORA] me hizo [REACCIÓN]"
+   - "Intenté [ACCIÓN] en [LUGAR] y esto pasó"
+   - "[NÚMERO] años después, todavía no puedo olvidar lo que pasó en [LUGAR]"
+   - "La noche que [ACCIÓN] en [LUGAR] cambió mi vida"
+   - "Nadie me creyó hasta que grabé esto en [LUGAR]"
+   Ejemplo: "Lo que vi en el Puente de la Candelaria a las 2 AM me hizo renunciar a mi trabajo"
+
+2. RESTRICCIÓN (El "Hook" del Reel): La historia DEBE contener al menos una RESTRICCIÓN que el narrador enfrente. Esto genera conflicto y curiosidad.
+   Ejemplos: no podía gritar, no podía moverse, no podía encender la linterna, tenía que llegar a casa antes de que sonaran las campanas, no podía apartar la mirada, el teléfono no tenía señal.
+
+3. GANCHO PARA EL POST: Crea una frase (máx 60 caracteres) que sea una PREGUNTA directa al espectador, para usar como título del post de Facebook.
+   Ejemplo: "¿Qué harías tú si ves esto a las 3 AM?"
 
 Formato EXACTO de salida:
-🌙 **[Título descriptivo del suceso]**
+🌙 **[Título de Curiosidad]**
 
 [Primer párrafo]
 
@@ -483,7 +484,10 @@ Formato EXACTO de salida:
 
 [... y así sucesivamente, separados por línea en blanco]
 
-(NO agregues hashtags ni llamadas a comentar, yo los agregaré después)
+GANCHO_POST: [Frase de pregunta para Facebook]
+RESTRICCION: [Descripción clara de la restricción]
+
+(NO agregues hashtags ni llamadas a comentar)
 """
     url = "https://api.deepseek.com/v1/chat/completions"
     headers = {"Authorization": f"Bearer {DEEPSEEK_API_KEY}", "Content-Type": "application/json"}
@@ -491,7 +495,7 @@ Formato EXACTO de salida:
         "model": "deepseek-chat",
         "messages": [{"role": "user", "content": prompt}],
         "temperature": 0.75,
-        "max_tokens": 1200,
+        "max_tokens": 1300,
     }
     for intento in range(3):
         try:
@@ -501,8 +505,12 @@ Formato EXACTO de salida:
             resultado = r.json()["choices"][0]["message"]["content"].strip()
             if "[Error" in resultado or len(resultado) < 200:
                 raise ValueError("Respuesta muy corta o con error")
+            # Verificar que contiene los marcadores GANCHO_POST y RESTRICCION
+            if "GANCHO_POST:" not in resultado or "RESTRICCION:" not in resultado:
+                print("   ⚠️ No contiene los marcadores necesarios. Reintentando...")
+                raise ValueError("Faltan marcadores GANCHO_POST o RESTRICCION")
             lineas = resultado.split('\n')
-            texto_narrativo = '\n'.join(linea for linea in lineas if linea.strip() and not linea.strip().startswith('🌙'))
+            texto_narrativo = '\n'.join(linea for linea in lineas if not linea.startswith('GANCHO_POST:') and not linea.startswith('RESTRICCION:') and linea.strip())
             palabras = len(texto_narrativo.split())
             print(f"   📊 Palabras generadas: {palabras}")
             if palabras < 250:
@@ -521,6 +529,9 @@ Formato EXACTO de salida:
 # ================================================================
 def agregar_cta_final(texto):
     texto = re.sub(r'#\w+', '', texto)
+    # Eliminar líneas de marcadores si quedaron
+    texto = re.sub(r'GANCHO_POST:.*', '', texto)
+    texto = re.sub(r'RESTRICCION:.*', '', texto)
     patrones = [
         r"💀.*?comentarios.*?",
         r"👇.*?comentarios.*?",
@@ -538,23 +549,33 @@ def agregar_cta_final(texto):
     return texto.strip() + cta + hashtags + leyenda_ia
 
 # ================================================================
-# 📝 GENERAR RESUMEN PARA REEL
+# 📝 GENERAR RESUMEN PARA REEL (EN FORMATO EXPERIMENTO/DESAFÍO)
 # ================================================================
-def generar_resumen_reel(historia_completa):
-    prompt = f"""Resume el siguiente relato de terror en un texto CORTO y ATMOSFÉRICO de EXACTAMENTE 100 palabras, ideal para un Reel de Facebook.
+def generar_resumen_reel(historia_completa, restriccion):
+    # Extraer el lugar de la historia (intentamos con una expresión simple)
+    lugar = "México"
+    lineas = historia_completa.split('\n')
+    for linea in lineas:
+        if "en" in linea and len(linea.split()) > 3:
+            # Intentar extraer lugar después de "en"
+            match = re.search(r'en\s+([A-ZÁÉÍÓÚÑ][a-záéíóúñ]+\s*[A-ZÁÉÍÓÚÑ]?[a-záéíóúñ]*)', linea)
+            if match:
+                lugar = match.group(1).strip()
+                break
+    
+    prompt = f"""Resume el siguiente relato de terror en un texto CORTO y ATMOSFÉRICO (máximo 100 palabras) para un Reel de Facebook, pero enmarcándolo como un EXPERIMENTO o DESAFÍO.
 
 REGLAS:
-- Mantén el suspenso y el tono de terror.
-- Incluye el lugar y el nombre del narrador si aparece.
-- Debe ser un resumen que enganche al espectador a querer leer el post completo.
-- Extensión: 100 palabras exactas (aproximadamente).
+- El resumen debe enganchar al espectador haciéndole sentir que está viendo un intento, una prueba o un desafío real.
+- Comienza con una frase como: "Basado en un testimonio real. Esta noche intentamos [ACCIÓN] en [LUGAR] y esto pasó..."
+- Incluye la RESTRICCIÓN: "{restriccion}" para generar tensión. Usa frases como "No podía [ACCIÓN]" o "Tenía que [ACCIÓN]".
+- Extensión: aproximadamente 100 palabras (no más de 110).
+- NO incluyas hashtags ni llamadas a la acción.
 
 RELATO COMPLETO:
 \"\"\"
 {historia_completa}
 \"\"\"
-
-Devuelve SOLO el resumen, sin títulos, sin hashtags, sin llamados a la acción.
 """
     url = "https://api.deepseek.com/v1/chat/completions"
     headers = {"Authorization": f"Bearer {DEEPSEEK_API_KEY}", "Content-Type": "application/json"}
@@ -562,20 +583,24 @@ Devuelve SOLO el resumen, sin títulos, sin hashtags, sin llamados a la acción.
         "model": "deepseek-chat",
         "messages": [{"role": "user", "content": prompt}],
         "temperature": 0.7,
-        "max_tokens": 200,
+        "max_tokens": 250,
     }
     try:
         r = requests.post(url, headers=headers, json=payload, timeout=60)
         r.raise_for_status()
         resumen = r.json()["choices"][0]["message"]["content"].strip()
         palabras = resumen.split()
-        if len(palabras) > 110:
+        if len(palabras) > 120:
             resumen = " ".join(palabras[:100]) + "..."
+        # Asegurar que comience con el formato de experimento (si no, agregarlo)
+        if not any(resumen.lower().startswith(prefix) for prefix in ["basado en", "esta noche", "intenté", "intentamos"]):
+            resumen = f"Basado en un testimonio real. {resumen}"
         return resumen
     except Exception as e:
         print(f"❌ Error generando resumen: {e}")
+        # Fallback: generar resumen simple
         palabras = historia_completa.split()
-        return " ".join(palabras[:100]) + "..."
+        return f"Basado en un testimonio real. {' '.join(palabras[:80])}..."
 
 def dividir_resumen_en_segmentos(resumen, num_segmentos=3):
     oraciones = re.split(r'(?<=[.!?])\s+', resumen)
@@ -606,11 +631,9 @@ def generar_imagen_agnes(prompt, width=1080, height=1350, intentos=6, espera_seg
     prompt_original = prompt
     for intento in range(1, intentos + 1):
         print(f"🎨 Intento {intento}/{intentos} generando imagen...")
-        # En el primer intento, usar prompt original; si falla, ir reescribiendo
         if intento > 1:
             prompt = reescribir_prompt_seguro(prompt_original)
         if intento > 3:
-            # Si sigue fallando, usar uno genérico y muy neutral
             prompt = "Vertical 4:5 cinematic photograph of a quiet urban street at night with fog and streetlights, realistic photography, no violence, no ghosts, no text."
 
         prompt_limpio = prompt[:800]
@@ -1018,11 +1041,11 @@ def crear_y_subir_video(texto, imagen_url, historia_completa, tema, personaje, n
                 pass
 
 # ================================================================
-# MAIN
+# MAIN (CON NUEVOS GANCHOS, RESTRICCIONES Y FORMATO EXPERIMENTO)
 # ================================================================
 def main():
     print(f"🎤 Voz inicial: {CONFIG_VOZ_ACTUAL['voz']} ({CONFIG_VOZ_ACTUAL['velocidad']})")
-    print("👻 Iniciando Bot de Terror (POST y REEL con relatos DIFERENTES)")
+    print("👻 Iniciando Bot de Terror (Ganchos + Restricciones + Formato Experimento)")
     print(f"📅 {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
 
     if not all([DEEPSEEK_API_KEY, MAKE_WEBHOOK_URL_TERROR, AGNES_API_KEY]):
@@ -1034,24 +1057,37 @@ def main():
 
     estado = cargar_estado()
     
-    # --- POST ---
+    # ==========================================
+    # 1. GENERAR POST (Relato A)
+    # ==========================================
     tema_post = obtener_tema_no_repetido(temas, estado)
     print(f"📖 Tema POST seleccionado: {tema_post}")
 
-    print("📝 Generando historia para POST...")
+    print("📝 Generando historia para POST (con gancho y restricción)...")
     historia_post = generar_historia_completa(tema_post)
     if not historia_post:
         print("❌ Falló la generación de la historia del POST.")
         sys.exit(1)
 
     print(f"✅ Historia POST generada ({len(historia_post.split())} palabras)")
-    personaje_post = detectar_personaje_y_epoca(historia_post)
-
-    titulo_post = "Relato de terror"
+    
+    # Extraer el gancho del post y la restricción
+    gancho_post = "¿Qué harías tú si ves esto a las 3 AM?"  # Valor por defecto
+    restriccion = "No podía moverme"  # Valor por defecto
+    titulo_historia_post = "Relato de terror"
+    
     for linea in historia_post.split('\n'):
-        if linea.strip().startswith('🌙'):
-            titulo_post = linea.strip().replace('🌙', '').strip()
-            break
+        if linea.startswith('GANCHO_POST:'):
+            gancho_post = linea.replace('GANCHO_POST:', '').strip()
+        elif linea.startswith('RESTRICCION:'):
+            restriccion = linea.replace('RESTRICCION:', '').strip()
+        elif linea.strip().startswith('🌙'):
+            titulo_historia_post = linea.strip().replace('🌙', '').strip()
+    
+    print(f"🎯 Gancho POST: {gancho_post}")
+    print(f"🔒 Restricción: {restriccion}")
+
+    personaje_post = detectar_personaje_y_epoca(historia_post)
 
     print("🎨 Generando imagen para POST (4:5)...")
     prompt_post = generar_prompt_imagen(historia_post, tema_post, personaje_post)
@@ -1060,10 +1096,14 @@ def main():
         print("⚠️ Agnes falló para el post. Usando imagen de respaldo...")
         image_post_url = generar_imagen_respaldo(1080, 1350)
 
-    texto_final_post = agregar_cta_final(historia_post)
-    print("✅ POST listo: Historia + Imagen + CTA")
+    # El texto del post comienza con el gancho (pregunta) seguido de la historia
+    texto_post_limpio = agregar_cta_final(historia_post)
+    texto_final_post = f"🤔 {gancho_post}\n\n{texto_post_limpio}"
+    print("✅ POST listo: Gancho + Historia + Imagen + CTA")
 
-    # --- REEL ---
+    # ==========================================
+    # 2. GENERAR REEL (Relato B - DIFERENTE)
+    # ==========================================
     estado_temporal = {
         "publicados": estado.get("publicados", []) + [tema_post],
         "ultimo_tema": tema_post
@@ -1078,16 +1118,20 @@ def main():
         sys.exit(1)
         
     print(f"✅ Historia REEL generada ({len(historia_reel.split())} palabras)")
-    personaje_reel = detectar_personaje_y_epoca(historia_reel)
     
-    titulo_reel = "Relato de terror"
+    # Extraer restricción del REEL
+    restriccion_reel = "No podía moverme"
+    titulo_historia_reel = "Relato de terror"
     for linea in historia_reel.split('\n'):
-        if linea.strip().startswith('🌙'):
-            titulo_reel = linea.strip().replace('🌙', '').strip()
-            break
+        if linea.startswith('RESTRICCION:'):
+            restriccion_reel = linea.replace('RESTRICCION:', '').strip()
+        elif linea.strip().startswith('🌙'):
+            titulo_historia_reel = linea.strip().replace('🌙', '').strip()
+    
+    personaje_reel = detectar_personaje_y_epoca(historia_reel)
 
-    print("📝 Generando resumen para Reel...")
-    resumen_reel = generar_resumen_reel(historia_reel)
+    print("📝 Generando resumen para Reel (formato experimento)...")
+    resumen_reel = generar_resumen_reel(historia_reel, restriccion_reel)
     print(f"✅ Resumen Reel: {len(resumen_reel.split())} palabras")
 
     print("🎨 Generando imagen de respaldo para Reel (9:16)...")
@@ -1113,8 +1157,13 @@ def main():
         print("⏭️ Cloudinary no configurado, omitiendo Reel.")
 
     hashtags_texto = "#LeyendasMexicanas #Terror #Misterio #Paranormal #Mexico"
-    descripcion_reel = f"🌙 {titulo_reel}\n\n{hashtags_texto}\n\n_Imágenes y voz generados con IA._"
+    
+    # Descripción del Reel: Título + Resumen (en formato experimento) + Hashtags + Disclaimer
+    descripcion_reel = f"🌙 {titulo_historia_reel}\n\n{resumen_reel}\n\n{hashtags_texto}\n\n_Imágenes y voz generados con IA._"
 
+    # ==========================================
+    # 3. ENVIAR A MAKE
+    # ==========================================
     payload = {
         "post_message": texto_final_post,
         "post_image": image_post_url,
