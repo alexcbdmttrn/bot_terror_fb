@@ -301,16 +301,71 @@ DIRECTRICES_ENTIDAD = {
 }
 
 # ================================================================
-# 🎨 GENERAR PROMPT DE IMAGEN CON DEEPSEEK (VERSIÓN MUY NEUTRAL)
+# 🎨 GENERAR PROMPT DE IMAGEN PERSONALIZADO POR SEGMENTO
 # ================================================================
-def generar_prompt_imagen(historia, tema, personaje):
-    tipo = detectar_tipo_entidad(tema)
-    entidad = DIRECTRICES_ENTIDAD[tipo]
+def generar_prompt_imagen(segmento_texto, tema, personaje, indice_segmento, total_segmentos, anio=None, genero=None, edad=None):
+    """
+    Genera un prompt de imagen ÚNICO para cada segmento, con variaciones de:
+    - Ubicación (extraída del texto)
+    - Hora del día (alterna entre noche, atardecer, amanecer)
+    - Ángulo de cámara (plano general, contrapicado, cenital, etc.)
+    - Paleta de colores (fría, cálida, neutra)
+    - Elementos clave (objetos, personas, vehículos de la época)
+    - Atmósfera (niebla, lluvia, luz de luna)
+    """
+    # Extraer ubicación del segmento (intentar capturar lugar después de "en")
+    ubicacion = "México"
+    match = re.search(r'en\s+([A-ZÁÉÍÓÚÑ][a-záéíóúñ]+\s*[A-ZÁÉÍÓÚÑ]?[a-záéíóúñ]*)', segmento_texto)
+    if match:
+        ubicacion = match.group(1).strip()
     
-    genero = personaje.get("genero", "hombre")
-    edad = personaje.get("edad_aprox", 35)
-    anio = personaje.get("anio", 2015)
+    # Extraer hora si se menciona
+    hora = "noche"
+    if re.search(r'\b(3|2|1|4|5)\s*AM\b', segmento_texto, re.IGNORECASE):
+        hora = "madrugada"
+    elif re.search(r'\b(8|9|10|11)\s*PM\b', segmento_texto, re.IGNORECASE):
+        hora = "noche"
+    elif re.search(r'\b(atardecer|crepúsculo)\b', segmento_texto, re.IGNORECASE):
+        hora = "atardecer"
+    elif re.search(r'\b(amanecer|madrugada)\b', segmento_texto, re.IGNORECASE):
+        hora = "amanecer"
     
+    # Elegir ángulo de cámara según índice
+    angulos = [
+        "wide establishing shot from a low angle looking up",
+        "medium shot from eye level",
+        "wide shot from a high angle (bird's eye view)",
+        "close-up of environment details",
+        "dutch angle (tilted) for unsettling mood",
+        "over-the-shoulder view",
+        "cinematic tracking shot, slight motion blur"
+    ]
+    angulo = angulos[indice_segmento % len(angulos)]
+    
+    # Elegir paleta de colores según índice
+    paletas = [
+        "dark blue and teal with amber streetlights",
+        "deep crimson and charcoal with moonlight highlights",
+        "muted sepia and warm amber tones",
+        "cold slate grey and pale blue with mist",
+        "vibrant orange and purple twilight",
+        "monochromatic silver and black with high contrast"
+    ]
+    paleta = paletas[indice_segmento % len(paletas)]
+    
+    # Elegir atmósfera según índice
+    atmosferas = [
+        "thick fog and volumetric light beams",
+        "light rain and wet surfaces reflecting light",
+        "heavy mist with silhouettes barely visible",
+        "clear night with bright moon and deep shadows",
+        "dusty atmosphere with golden hour light"
+    ]
+    atmosfera = atmosferas[indice_segmento % len(atmosferas)]
+    
+    # Construir época
+    if anio is None:
+        anio = 2015
     if anio >= 2015:
         epoca_mod = "present day contemporary era (2020s), modern vehicles, modern architecture, smartphones, LED lighting"
     elif anio >= 2000:
@@ -321,35 +376,48 @@ def generar_prompt_imagen(historia, tema, personaje):
         epoca_mod = f"1980s era (year {anio}), 80s cars, vintage clothing, older buildings, analog technology"
     else:
         epoca_mod = f"past era (year {anio}), classic cars, period clothing, aged architecture, no modern devices"
-
+    
+    # Personaje (si se menciona en el segmento)
+    if genero is None:
+        genero = "hombre"
+    if edad is None:
+        edad = 35
     if genero == "mujer":
         sujeto_humano = f"a {edad}-year-old Mexican woman"
     else:
         sujeto_humano = f"a {edad}-year-old Mexican man"
+    
+    # Detectar si el segmento menciona al personaje
+    menciona_personaje = "yo" in segmento_texto.lower() or "mi" in segmento_texto.lower() or "me" in segmento_texto.lower()
+    
+    prompt_deepseek = f"""Eres un EXPERTO EN DIRECCIÓN DE FOTOGRAFÍA CINEMATOGRÁFICA. Genera un prompt de imagen en INGLÉS para una fotografía VERTICAL (4:5) que represente la siguiente escena:
 
-    prompt_deepseek = f"""Eres un EXPERTO EN FOTOGRAFÍA CINEMATOGRÁFICA. Tu tarea es generar un prompt de imagen en INGLÉS para una foto VERTICAL (4:5) de una escena que represente la siguiente historia, pero de forma SUTIL y ATMOSFÉRICA.
-
-HISTORIA:
+ESCENA:
 \"\"\"
-{limpiar_texto_para_imagen(historia)[:400]}
+{segmento_texto[:300]}
 \"\"\"
 
-REGLAS ABSOLUTAMENTE ESTRICTAS:
-1. La imagen debe parecer una fotografía REALISTA, no una ilustración.
-2. Enfócate en el ENTORNO: arquitectura, calles, paisajes, objetos. La historia sucede en un lugar; muestra ese lugar.
-3. Si el personaje aparece, debe ser muy pequeño (menos del 20% del encuadre), de espaldas o a lo lejos. 
-4. ESTILO: fotografía nocturna, luces tenues, niebla ligera, colores fríos (azulados, grises, o cálidos si es atardecer).
-5. PROHIBIDO mencionar: ghost, terror, horror, paranormal, supernatural, haunted, creepy, scary, evil, demon, devil, death, blood, gore, wound, kill, murder, etc. En su lugar, usa palabras como: atmosphere, moody, dim light, foggy, mysterious (pero sin miedo).
-6. La imagen debe ser apta para todo público, sin elementos violentos ni aterradores.
-7. Época exacta: {epoca_mod}. Muestra vehículos, edificios y vestimenta de esa época.
+INSTRUCCIONES ESPECÍFICAS:
+- UBICACIÓN: {ubicacion}, México
+- HORA DEL DÍA: {hora}
+- ESTILO DE CÁMARA: {angulo}
+- PALETA DE COLOR: {paleta}
+- ATMÓSFERA: {atmosfera}
+- ÉPOCA: {epoca_mod}
+- PERSONAJE: {sujeto_humano} ({"incluirlo de espaldas o a distancia, ocupando máximo 20% del encuadre" if menciona_personaje else "NO incluir personas, solo el entorno"})
+
+REGLAS ABSOLUTAS:
+1. La imagen debe ser REALISTA, como una fotografía de cine.
+2. El ENTORNO (edificios, calles, vehículos, paisajes) es el protagonista.
+3. Si hay persona, debe ser muy pequeña (menos del 20% del encuadre), de espaldas o a lo lejos.
+4. ESTILO: cinematográfico, fotografía nocturna, luces atmosféricas.
+5. PROHIBIDO mencionar: ghost, terror, horror, paranormal, supernatural, haunted, creepy, scary, evil, demon, devil, death, blood, gore, wound, kill, murder.
+6. La imagen debe ser apta para todo público.
 
 Ejemplo de prompt BUENO:
 "A cinematic vertical 4:5 photograph of a quiet street in a small Mexican town at night, with a vintage car parked under a streetlamp, soft fog, and a person walking away in the distance. Dark blue and amber tones, realistic photography."
 
-Ejemplo de prompt MALO:
-"A ghost appears in the dark, terrifying shadows, horror movie style."
-
-Devuelve SOLO el prompt en inglés, sin explicaciones, directo y concreto.
+Devuelve SOLO el prompt en inglés, directo y concreto.
 """
     url = "https://api.deepseek.com/v1/chat/completions"
     headers = {"Authorization": f"Bearer {DEEPSEEK_API_KEY}", "Content-Type": "application/json"}
@@ -357,7 +425,7 @@ Devuelve SOLO el prompt en inglés, sin explicaciones, directo y concreto.
         "model": "deepseek-chat",
         "messages": [{"role": "user", "content": prompt_deepseek}],
         "temperature": 0.6,
-        "max_tokens": 350,
+        "max_tokens": 400,
     }
     try:
         r = requests.post(url, headers=headers, json=payload, timeout=60)
@@ -374,10 +442,9 @@ Devuelve SOLO el prompt en inglés, sin explicaciones, directo y concreto.
         return "Vertical 4:5 cinematic photograph of an empty street at night with fog and lamplight, realistic style, no horror, no ghosts, no text."
 
 # ================================================================
-# 🛡️ FILTRAR Y REESCRIBIR PROMPT PARA AGNES (MUY AGRESIVO)
+# 🛡️ FILTRAR Y REESCRIBIR PROMPT PARA AGNES
 # ================================================================
 def reescribir_prompt_seguro(prompt):
-    """Reemplaza palabras 'peligrosas' por sinónimos inofensivos."""
     reemplazos = {
         r'\bghost\b': 'silhouette',
         r'\bphantom\b': 'figure',
@@ -461,19 +528,15 @@ Tu tarea es crear una historia de terror CORTA y AUTOCONCLUSIVA basada en el tem
 - ESTRUCTURA: 1. Gancho en el título 2. Contexto 3. Desarrollo 4. Clímax 5. Desenlace
 
 🎯 REGLAS DE ORO PARA EL ÉXITO EN REDES:
-1. TÍTULO: NO uses un título descriptivo ("El fantasma de..."). Usa un GANCHO que genere CURIOSIDAD o PREGUNTA. Fórmulas:
+1. TÍTULO: NO uses un título descriptivo ("El fantasma de..."). Usa un GANCHO que genere CURIOSIDAD o PREGUNTA.
    - "Lo que vi en [LUGAR] a las [HORA] me hizo [REACCIÓN]"
    - "Intenté [ACCIÓN] en [LUGAR] y esto pasó"
    - "[NÚMERO] años después, todavía no puedo olvidar lo que pasó en [LUGAR]"
    - "La noche que [ACCIÓN] en [LUGAR] cambió mi vida"
-   - "Nadie me creyó hasta que grabé esto en [LUGAR]"
-   Ejemplo: "Lo que vi en el Puente de la Candelaria a las 2 AM me hizo renunciar a mi trabajo"
 
-2. RESTRICCIÓN (El "Hook" del Reel): La historia DEBE contener al menos una RESTRICCIÓN que el narrador enfrente. Esto genera conflicto y curiosidad.
-   Ejemplos: no podía gritar, no podía moverse, no podía encender la linterna, tenía que llegar a casa antes de que sonaran las campanas, no podía apartar la mirada, el teléfono no tenía señal.
+2. RESTRICCIÓN (El "Hook" del Reel): La historia DEBE contener al menos una RESTRICCIÓN que el narrador enfrente.
 
-3. GANCHO PARA EL POST: Crea una frase (máx 60 caracteres) que sea una PREGUNTA directa al espectador, para usar como título del post de Facebook.
-   Ejemplo: "¿Qué harías tú si ves esto a las 3 AM?"
+3. GANCHO PARA EL POST: Crea una frase (máx 60 caracteres) que sea una PREGUNTA directa al espectador.
 
 Formato EXACTO de salida:
 🌙 **[Título de Curiosidad]**
@@ -505,10 +568,9 @@ RESTRICCION: [Descripción clara de la restricción]
             resultado = r.json()["choices"][0]["message"]["content"].strip()
             if "[Error" in resultado or len(resultado) < 200:
                 raise ValueError("Respuesta muy corta o con error")
-            # Verificar que contiene los marcadores GANCHO_POST y RESTRICCION
             if "GANCHO_POST:" not in resultado or "RESTRICCION:" not in resultado:
                 print("   ⚠️ No contiene los marcadores necesarios. Reintentando...")
-                raise ValueError("Faltan marcadores GANCHO_POST o RESTRICCION")
+                raise ValueError("Faltan marcadores")
             lineas = resultado.split('\n')
             texto_narrativo = '\n'.join(linea for linea in lineas if not linea.startswith('GANCHO_POST:') and not linea.startswith('RESTRICCION:') and linea.strip())
             palabras = len(texto_narrativo.split())
@@ -529,7 +591,6 @@ RESTRICCION: [Descripción clara de la restricción]
 # ================================================================
 def agregar_cta_final(texto):
     texto = re.sub(r'#\w+', '', texto)
-    # Eliminar líneas de marcadores si quedaron
     texto = re.sub(r'GANCHO_POST:.*', '', texto)
     texto = re.sub(r'RESTRICCION:.*', '', texto)
     patrones = [
@@ -552,24 +613,22 @@ def agregar_cta_final(texto):
 # 📝 GENERAR RESUMEN PARA REEL (EN FORMATO EXPERIMENTO/DESAFÍO)
 # ================================================================
 def generar_resumen_reel(historia_completa, restriccion):
-    # Extraer el lugar de la historia (intentamos con una expresión simple)
     lugar = "México"
     lineas = historia_completa.split('\n')
     for linea in lineas:
         if "en" in linea and len(linea.split()) > 3:
-            # Intentar extraer lugar después de "en"
             match = re.search(r'en\s+([A-ZÁÉÍÓÚÑ][a-záéíóúñ]+\s*[A-ZÁÉÍÓÚÑ]?[a-záéíóúñ]*)', linea)
             if match:
                 lugar = match.group(1).strip()
                 break
     
-    prompt = f"""Resume el siguiente relato de terror en un texto CORTO y ATMOSFÉRICO (máximo 100 palabras) para un Reel de Facebook, pero enmarcándolo como un EXPERIMENTO o DESAFÍO.
+    prompt = f"""Resume el siguiente relato de terror en un texto CORTO y ATMOSFÉRICO (máximo 100 palabras) para un Reel de Facebook, enmarcándolo como un EXPERIMENTO o DESAFÍO.
 
 REGLAS:
 - El resumen debe enganchar al espectador haciéndole sentir que está viendo un intento, una prueba o un desafío real.
-- Comienza con una frase como: "Basado en un testimonio real. Esta noche intentamos [ACCIÓN] en [LUGAR] y esto pasó..."
-- Incluye la RESTRICCIÓN: "{restriccion}" para generar tensión. Usa frases como "No podía [ACCIÓN]" o "Tenía que [ACCIÓN]".
-- Extensión: aproximadamente 100 palabras (no más de 110).
+- Comienza con: "Basado en un testimonio real. Esta noche intentamos [ACCIÓN] en [LUGAR] y esto pasó..."
+- Incluye la RESTRICCIÓN: "{restriccion}".
+- Extensión: aproximadamente 100 palabras.
 - NO incluyas hashtags ni llamadas a la acción.
 
 RELATO COMPLETO:
@@ -592,13 +651,11 @@ RELATO COMPLETO:
         palabras = resumen.split()
         if len(palabras) > 120:
             resumen = " ".join(palabras[:100]) + "..."
-        # Asegurar que comience con el formato de experimento (si no, agregarlo)
         if not any(resumen.lower().startswith(prefix) for prefix in ["basado en", "esta noche", "intenté", "intentamos"]):
             resumen = f"Basado en un testimonio real. {resumen}"
         return resumen
     except Exception as e:
         print(f"❌ Error generando resumen: {e}")
-        # Fallback: generar resumen simple
         palabras = historia_completa.split()
         return f"Basado en un testimonio real. {' '.join(palabras[:80])}..."
 
@@ -625,7 +682,7 @@ def dividir_resumen_en_segmentos(resumen, num_segmentos=3):
         return segmentos
 
 # ================================================================
-# 🖼️ GENERAR IMAGEN CON AGNES (CON REINTENTOS Y REWRITE)
+# 🖼️ GENERAR IMAGEN CON AGNES (CON REINTENTOS)
 # ================================================================
 def generar_imagen_agnes(prompt, width=1080, height=1350, intentos=6, espera_segundos=15):
     prompt_original = prompt
@@ -867,7 +924,7 @@ def crear_y_subir_video(texto, imagen_url, historia_completa, tema, personaje, n
         print("❌ Cloudinary no configurado.")
         return None
 
-    print("🎬 Creando video Reel con múltiples escenas, música y subtítulos por segmento...")
+    print("🎬 Creando video Reel con múltiples escenas, música y subtítulos...")
     
     if len(texto.split()) < 20:
         segmentos_texto = [texto]
@@ -875,12 +932,29 @@ def crear_y_subir_video(texto, imagen_url, historia_completa, tema, personaje, n
     else:
         segmentos_texto = dividir_resumen_en_segmentos(texto, num_escenas)
     
-    print(f"📝 Generando {len(segmentos_texto)} imágenes y subtítulos para el Reel...")
+    print(f"📝 Generando {len(segmentos_texto)} imágenes para el Reel...")
+    
+    # Obtener datos del personaje para los prompts
+    genero = personaje.get("genero", "hombre")
+    edad = personaje.get("edad_aprox", 35)
+    anio = personaje.get("anio", 2015)
     
     urls_imagenes = []
     for i, seg in enumerate(segmentos_texto):
-        prompt_seg = f"Escena de la historia: {seg}\n\n{historia_completa[:300]}"
-        img_prompt = generar_prompt_imagen(prompt_seg, tema, personaje)
+        print(f"🎨 Generando prompt para segmento {i+1}/{len(segmentos_texto)}...")
+        # Generar prompt personalizado para este segmento
+        img_prompt = generar_prompt_imagen(
+            segmento_texto=seg,
+            tema=tema,
+            personaje=personaje,
+            indice_segmento=i,
+            total_segmentos=len(segmentos_texto),
+            anio=anio,
+            genero=genero,
+            edad=edad
+        )
+        # Imprimir parte del prompt para depuración
+        print(f"   📝 Prompt: {img_prompt[:120]}...")
         img_url = generar_imagen_agnes(img_prompt, width=1080, height=1920, intentos=4, espera_segundos=10)
         if img_url:
             urls_imagenes.append(img_url)
@@ -1041,11 +1115,11 @@ def crear_y_subir_video(texto, imagen_url, historia_completa, tema, personaje, n
                 pass
 
 # ================================================================
-# MAIN (CON NUEVOS GANCHOS, RESTRICCIONES Y FORMATO EXPERIMENTO)
+# MAIN
 # ================================================================
 def main():
     print(f"🎤 Voz inicial: {CONFIG_VOZ_ACTUAL['voz']} ({CONFIG_VOZ_ACTUAL['velocidad']})")
-    print("👻 Iniciando Bot de Terror (Ganchos + Restricciones + Formato Experimento)")
+    print("👻 Iniciando Bot de Terror (Ganchos + Restricciones + Imágenes personalizadas por segmento)")
     print(f"📅 {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
 
     if not all([DEEPSEEK_API_KEY, MAKE_WEBHOOK_URL_TERROR, AGNES_API_KEY]):
@@ -1071,9 +1145,9 @@ def main():
 
     print(f"✅ Historia POST generada ({len(historia_post.split())} palabras)")
     
-    # Extraer el gancho del post y la restricción
-    gancho_post = "¿Qué harías tú si ves esto a las 3 AM?"  # Valor por defecto
-    restriccion = "No podía moverme"  # Valor por defecto
+    # Extraer gancho y restricción
+    gancho_post = "¿Qué harías tú si ves esto a las 3 AM?"
+    restriccion = "No podía moverme"
     titulo_historia_post = "Relato de terror"
     
     for linea in historia_post.split('\n'):
@@ -1090,13 +1164,21 @@ def main():
     personaje_post = detectar_personaje_y_epoca(historia_post)
 
     print("🎨 Generando imagen para POST (4:5)...")
-    prompt_post = generar_prompt_imagen(historia_post, tema_post, personaje_post)
+    prompt_post = generar_prompt_imagen(
+        segmento_texto=historia_post[:500],
+        tema=tema_post,
+        personaje=personaje_post,
+        indice_segmento=0,
+        total_segmentos=1,
+        anio=personaje_post.get("anio", 2015),
+        genero=personaje_post.get("genero", "hombre"),
+        edad=personaje_post.get("edad_aprox", 35)
+    )
     image_post_url = generar_imagen_agnes(prompt_post, width=1080, height=1350, intentos=6)
     if not image_post_url:
         print("⚠️ Agnes falló para el post. Usando imagen de respaldo...")
         image_post_url = generar_imagen_respaldo(1080, 1350)
 
-    # El texto del post comienza con el gancho (pregunta) seguido de la historia
     texto_post_limpio = agregar_cta_final(historia_post)
     texto_final_post = f"🤔 {gancho_post}\n\n{texto_post_limpio}"
     print("✅ POST listo: Gancho + Historia + Imagen + CTA")
@@ -1119,7 +1201,6 @@ def main():
         
     print(f"✅ Historia REEL generada ({len(historia_reel.split())} palabras)")
     
-    # Extraer restricción del REEL
     restriccion_reel = "No podía moverme"
     titulo_historia_reel = "Relato de terror"
     for linea in historia_reel.split('\n'):
@@ -1135,7 +1216,16 @@ def main():
     print(f"✅ Resumen Reel: {len(resumen_reel.split())} palabras")
 
     print("🎨 Generando imagen de respaldo para Reel (9:16)...")
-    prompt_reel = generar_prompt_imagen(historia_reel, tema_reel, personaje_reel).replace("4:5", "9:16")
+    prompt_reel = generar_prompt_imagen(
+        segmento_texto=historia_reel[:500],
+        tema=tema_reel,
+        personaje=personaje_reel,
+        indice_segmento=0,
+        total_segmentos=1,
+        anio=personaje_reel.get("anio", 2015),
+        genero=personaje_reel.get("genero", "hombre"),
+        edad=personaje_reel.get("edad_aprox", 35)
+    ).replace("4:5", "9:16")
     image_reel_url = generar_imagen_agnes(prompt_reel, width=1080, height=1920, intentos=4)
     if not image_reel_url:
         print("⚠️ No se pudo generar imagen de respaldo para el Reel. Se usará una genérica.")
@@ -1157,8 +1247,6 @@ def main():
         print("⏭️ Cloudinary no configurado, omitiendo Reel.")
 
     hashtags_texto = "#LeyendasMexicanas #Terror #Misterio #Paranormal #Mexico"
-    
-    # Descripción del Reel: Título + Resumen (en formato experimento) + Hashtags + Disclaimer
     descripcion_reel = f"🌙 {titulo_historia_reel}\n\n{resumen_reel}\n\n{hashtags_texto}\n\n_Imágenes y voz generados con IA._"
 
     # ==========================================
