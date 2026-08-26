@@ -23,7 +23,7 @@ import atexit
 # ================================================================
 DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY")
 MAKE_WEBHOOK_URL_TERROR = os.getenv("MAKE_WEBHOOK_URL_TERROR")
-PEXELS_API_KEY = os.getenv("PEXELS_API_KEY")          # <--- NUEVO: Reemplaza a AGNES
+PEXELS_API_KEY = os.getenv("PEXELS_API_KEY")
 
 CLOUD_NAME = os.getenv("CLOUDINARY_CLOUD_NAME")
 CLOUD_API_KEY = os.getenv("CLOUDINARY_API_KEY")
@@ -45,7 +45,7 @@ else:
     print("⚠️ Cloudinary no configurado. No se podrán subir placeholders ni videos.")
 
 # ================================================================
-# 🎤 VOCES NEURALES EDGE-TTS (íntegro)
+# 🎤 VOCES NEURALES EDGE-TTS
 # ================================================================
 VOCES_DISPONIBLES = [
     {"voz": "es-MX-JorgeNeural", "velocidad": "+10%", "tono": "-2Hz"},
@@ -80,7 +80,7 @@ def descargar_musica_fondo():
         return None
 
 # ================================================================
-# 🖼️ GENERAR IMAGEN DE RESPALDO (placeholder local + Cloudinary)
+# 🖼️ GENERAR IMAGEN DE RESPALDO
 # ================================================================
 def generar_imagen_respaldo(width=1080, height=1350):
     try:
@@ -98,18 +98,13 @@ def generar_imagen_respaldo(width=1080, height=1350):
         return f"https://via.placeholder.com/{width}x{height}/1a1a1a/303060"
 
 # ================================================================
-# 📷 BUSCAR IMAGEN EN PEXELS (NUEVO)
+# 📷 BUSCAR IMAGEN EN PEXELS
 # ================================================================
 def generar_imagen_pexels(query, width=1080, height=1350, orientacion="vertical"):
-    """
-    Busca en Pexels usando la consulta y devuelve la URL de la imagen más adecuada.
-    Si falla, retorna una imagen de respaldo.
-    """
     if not PEXELS_API_KEY:
         print("⚠️ PEXELS_API_KEY no configurada. Usando imagen de respaldo.")
         return generar_imagen_respaldo(width, height)
 
-    # Ajustar orientación para Pexels
     if orientacion == "vertical" and width < height:
         orientation_param = "portrait"
     elif orientacion == "horizontal" and width > height:
@@ -127,14 +122,13 @@ def generar_imagen_pexels(query, width=1080, height=1350, orientacion="vertical"
     }
 
     try:
-        response = requests.get(url, headers=headers, params=params, timeout=30)
+        response = requests.get(url, headers=headers, params=params, timeout=20)
         if response.status_code == 200:
             data = response.json()
             if data.get("photos"):
                 photo = data["photos"][0]
                 src = photo.get("src")
                 if src:
-                    # Elegir la mejor resolución disponible
                     image_url = src.get("large2x") or src.get("large") or src.get("original")
                     print(f"📷 Imagen de Pexels: {image_url[:80]}...")
                     return image_url
@@ -147,6 +141,9 @@ def generar_imagen_pexels(query, width=1080, height=1350, orientacion="vertical"
         else:
             print(f"❌ Error en Pexels API: {response.status_code} - {response.text[:100]}")
             return generar_imagen_respaldo(width, height)
+    except requests.exceptions.Timeout:
+        print("⏰ Timeout en Pexels. Usando imagen de respaldo.")
+        return generar_imagen_respaldo(width, height)
     except Exception as e:
         print(f"❌ Excepción en Pexels: {e}")
         return generar_imagen_respaldo(width, height)
@@ -155,18 +152,11 @@ def generar_imagen_pexels(query, width=1080, height=1350, orientacion="vertical"
 # 🔍 EXTRAER PALABRAS CLAVE PARA PEXELS
 # ================================================================
 def extraer_palabras_clave_pexels(segmento_texto, tema, personaje):
-    """
-    Analiza el segmento y extrae palabras clave relevantes para buscar en Pexels.
-    """
     texto_limpio = limpiar_texto_para_imagen(segmento_texto)
-
-    # Extraer lugar
     lugar = "Mexico"
     match = re.search(r'en\s+([A-ZÁÉÍÓÚÑ][a-záéíóúñ]+\s*[A-ZÁÉÍÓÚÑ]?[a-záéíóúñ]*)', segmento_texto)
     if match:
         lugar = match.group(1).strip()
-
-    # Extraer hora
     hora = "night"
     if re.search(r'\b(3|2|1|4|5)\s*AM\b', segmento_texto, re.IGNORECASE):
         hora = "early morning"
@@ -176,8 +166,6 @@ def extraer_palabras_clave_pexels(segmento_texto, tema, personaje):
         hora = "sunrise"
     elif re.search(r'\b(noche|medianoche)\b', segmento_texto, re.IGNORECASE):
         hora = "night"
-
-    # Detectar objetos
     objetos = []
     if "auto" in texto_limpio.lower() or "camión" in texto_limpio.lower():
         objetos.append("car")
@@ -195,8 +183,6 @@ def extraer_palabras_clave_pexels(segmento_texto, tema, personaje):
         objetos.append("church")
     if "cementerio" in texto_limpio.lower() or "panteón" in texto_limpio.lower():
         objetos.append("cemetery")
-
-    # Construir consulta
     query_parts = []
     if lugar:
         query_parts.append(lugar)
@@ -207,8 +193,6 @@ def extraer_palabras_clave_pexels(segmento_texto, tema, personaje):
     if not objetos:
         query_parts.append("mexican")
         query_parts.append("landscape")
-
-    # Palabras extra del tema
     tema_lower = tema.lower()
     if "fantasma" in tema_lower:
         query_parts.append("ghost")
@@ -216,13 +200,12 @@ def extraer_palabras_clave_pexels(segmento_texto, tema, personaje):
         query_parts.append("woman")
     elif "vampiro" in tema_lower:
         query_parts.append("dark")
-
     query = " ".join(query_parts[:5])
     print(f"🔍 Consulta Pexels: '{query}'")
     return query
 
 # ================================================================
-# FUNCIONES AUXILIARES (cargar_temas, estado, etc.)
+# FUNCIONES AUXILIARES
 # ================================================================
 def cargar_temas():
     try:
@@ -269,7 +252,7 @@ def limpiar_texto_para_imagen(texto):
     return texto.strip()
 
 # ================================================================
-# 🧹 LIMPIAR TEXTO PARA TTS (conversión de números)
+# 🧹 LIMPIAR TEXTO PARA TTS
 # ================================================================
 def convertir_numero_a_palabras(numero):
     unidades = ['cero', 'uno', 'dos', 'tres', 'cuatro', 'cinco', 'seis', 'siete', 'ocho', 'nueve']
@@ -312,7 +295,7 @@ def limpiar_texto_para_audio(texto):
     texto = re.sub(r'\s+', ' ', texto)
     return texto.strip()
 
-def descargar_imagen_con_retry(url, intentos=3, timeout=30):
+def descargar_imagen_con_retry(url, intentos=2, timeout=15):
     for i in range(intentos):
         try:
             r = requests.get(url, timeout=timeout, verify=False)
@@ -380,7 +363,7 @@ Devuelve SOLO el JSON, sin explicaciones, sin markdown.
     }
     
     try:
-        r = requests.post(url, headers=headers, json=payload, timeout=60)
+        r = requests.post(url, headers=headers, json=payload, timeout=25)
         r.raise_for_status()
         respuesta = r.json()["choices"][0]["message"]["content"].strip()
         respuesta = re.sub(r"```json\s*", "", respuesta)
@@ -397,35 +380,6 @@ Devuelve SOLO el JSON, sin explicaciones, sin markdown.
             "descripcion_breve": "a 35-year-old Mexican person, contemporary clothing",
             "anio": 2015
         }
-
-# ================================================================
-# 🎭 DETECTOR DE ENTIDAD (para variar visuales, se mantiene)
-# ================================================================
-def detectar_tipo_entidad(tema):
-    t = tema.lower()
-    if any(w in t for w in ["vampiro", "vampira", "chupasangre", "chupacabras"]):
-        return "vampiro"
-    if any(w in t for w in ["lobo", "nahual", "licántropo", "hombre lobo", "bestia"]):
-        return "lobo"
-    if any(w in t for w in ["monstruo", "criatura", "engendro", "demonio", "diablo"]):
-        return "monstruo"
-    if any(w in t for w in ["bruja", "hechicera", "nahuala", "aquelarre"]):
-        return "bruja"
-    if any(w in t for w in ["fantasma", "espíritu", "aparición", "sombra", "llorona", "ánima", "espectro"]):
-        return "fantasma"
-    return "misterio"
-
-# ================================================================
-# 📝 GENERAR PROMPT DE IMAGEN (Para DeepSeek, pero ya no lo usamos con Agnes)
-# Ahora lo usamos solo para extraer palabras clave, pero mantenemos la función
-# para no romper dependencias. Realmente usamos extraer_palabras_clave_pexels.
-# ================================================================
-def generar_prompt_imagen_para_pexels(segmento_texto, tema, personaje, indice_segmento, total_segmentos, anio=None, genero=None, edad=None):
-    """
-    Esta función ahora solo sirve para construir la consulta de Pexels.
-    Devuelve las palabras clave en lugar de un prompt.
-    """
-    return extraer_palabras_clave_pexels(segmento_texto, tema, personaje)
 
 # ================================================================
 # 📖 GENERAR HISTORIA COMPLETA (CON GANCHO, RESTRICCIÓN Y TÍTULO DE CURIOSIDAD)
@@ -478,7 +432,7 @@ RESTRICCION: [Descripción clara de la restricción]
     for intento in range(3):
         try:
             print(f"📝 Intento {intento+1}/3 generando historia...")
-            r = requests.post(url, headers=headers, json=payload, timeout=120)
+            r = requests.post(url, headers=headers, json=payload, timeout=30)
             r.raise_for_status()
             resultado = r.json()["choices"][0]["message"]["content"].strip()
             if "[Error" in resultado or len(resultado) < 200:
@@ -560,7 +514,7 @@ RELATO COMPLETO:
         "max_tokens": 250,
     }
     try:
-        r = requests.post(url, headers=headers, json=payload, timeout=60)
+        r = requests.post(url, headers=headers, json=payload, timeout=20)
         r.raise_for_status()
         resumen = r.json()["choices"][0]["message"]["content"].strip()
         palabras = resumen.split()
@@ -597,7 +551,7 @@ def dividir_resumen_en_segmentos(resumen, num_segmentos=3):
         return segmentos
 
 # ================================================================
-# 🎤 GENERAR AUDIO CON EDGE-TTS (íntegro)
+# 🎤 GENERAR AUDIO CON EDGE-TTS
 # ================================================================
 def generar_audio_edge_tts(texto, index):
     global CONFIG_VOZ_ACTUAL
@@ -675,7 +629,7 @@ def generar_audio_edge_tts(texto, index):
     return None
 
 # ================================================================
-# 🎥 ZOOM LENTO (íntegro)
+# 🎥 ZOOM LENTO
 # ================================================================
 def aplicar_zoom_lento(clip, zoom_final=1.10):
     dur = clip.duration
@@ -697,7 +651,7 @@ def aplicar_zoom_lento(clip, zoom_final=1.10):
     return clip.transform(efecto)
 
 # ================================================================
-# 🎬 CREAR SUBTÍTULO POR SEGMENTO (íntegro)
+# 🎬 CREAR SUBTÍTULO POR SEGMENTO
 # ================================================================
 def crear_subtitulo_por_segmento(texto, duracion, video_size=(1080, 1920)):
     lineas = []
@@ -773,7 +727,7 @@ def crear_subtitulo_por_segmento(texto, duracion, video_size=(1080, 1920)):
         return None
 
 # ================================================================
-# 🎬 CREAR VIDEO CON MÚLTIPLES ESCENAS, MÚSICA Y SUBTÍTULOS (íntegro, pero usando Pexels)
+# 🎬 CREAR VIDEO CON MÚLTIPLES ESCENAS, MÚSICA Y SUBTÍTULOS
 # ================================================================
 def crear_y_subir_video(texto, imagen_url, historia_completa, tema, personaje, num_escenas=3):
     if not CLOUDINARY_DISPONIBLE:
@@ -790,7 +744,6 @@ def crear_y_subir_video(texto, imagen_url, historia_completa, tema, personaje, n
     
     print(f"📝 Generando {len(segmentos_texto)} imágenes para el Reel...")
     
-    # Obtener datos del personaje para las consultas Pexels
     genero = personaje.get("genero", "hombre")
     edad = personaje.get("edad_aprox", 35)
     anio = personaje.get("anio", 2015)
@@ -798,9 +751,7 @@ def crear_y_subir_video(texto, imagen_url, historia_completa, tema, personaje, n
     urls_imagenes = []
     for i, seg in enumerate(segmentos_texto):
         print(f"🔍 Generando consulta Pexels para segmento {i+1}/{len(segmentos_texto)}...")
-        # Extraer palabras clave
         query = extraer_palabras_clave_pexels(seg, tema, personaje)
-        # Buscar imagen en Pexels
         img_url = generar_imagen_pexels(query, width=1080, height=1920, orientacion="vertical")
         if img_url:
             urls_imagenes.append(img_url)
@@ -961,7 +912,7 @@ def crear_y_subir_video(texto, imagen_url, historia_completa, tema, personaje, n
                 pass
 
 # ================================================================
-# MAIN (completo, con Pexels)
+# MAIN
 # ================================================================
 def main():
     print(f"🎤 Voz inicial: {CONFIG_VOZ_ACTUAL['voz']} ({CONFIG_VOZ_ACTUAL['velocidad']})")
@@ -1091,7 +1042,7 @@ def main():
 
     print("📤 Enviando a Make...")
     try:
-        r = requests.post(MAKE_WEBHOOK_URL_TERROR, json=payload, timeout=60)
+        r = requests.post(MAKE_WEBHOOK_URL_TERROR, json=payload, timeout=30)
         if r.status_code in [200, 201, 202]:
             print("✅ Enviado a Make correctamente")
             if tema_post not in estado.get("publicados", []):
