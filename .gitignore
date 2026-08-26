@@ -1,0 +1,16 @@
+# Archivos temporales de audio/video
+*.mp3
+*.mp4
+*.jpg
+*.jpeg
+*.png
+temp_*
+placeholder_*
+respaldo_*
+subtitulo_seg_*
+reel.mp4
+short_final.mp4
+
+# Archivos de estado (si no quieres subirlos, pero si los necesitas)
+# estado_terror.json
+# temas_2000.json
