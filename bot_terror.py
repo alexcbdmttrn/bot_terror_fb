@@ -23,7 +23,7 @@ import atexit
 # ================================================================
 DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY")
 MAKE_WEBHOOK_URL_TERROR = os.getenv("MAKE_WEBHOOK_URL_TERROR")
-AGNES_API_KEY = os.getenv("AGNES_API_KEY")
+PEXELS_API_KEY = os.getenv("PEXELS_API_KEY")          # <--- NUEVO: Reemplaza a AGNES
 
 CLOUD_NAME = os.getenv("CLOUDINARY_CLOUD_NAME")
 CLOUD_API_KEY = os.getenv("CLOUDINARY_API_KEY")
@@ -45,7 +45,7 @@ else:
     print("⚠️ Cloudinary no configurado. No se podrán subir placeholders ni videos.")
 
 # ================================================================
-# 🎤 VOCES NEURALES EDGE-TTS
+# 🎤 VOCES NEURALES EDGE-TTS (íntegro)
 # ================================================================
 VOCES_DISPONIBLES = [
     {"voz": "es-MX-JorgeNeural", "velocidad": "+10%", "tono": "-2Hz"},
@@ -80,7 +80,7 @@ def descargar_musica_fondo():
         return None
 
 # ================================================================
-# 🖼️ GENERAR IMAGEN DE RESPALDO
+# 🖼️ GENERAR IMAGEN DE RESPALDO (placeholder local + Cloudinary)
 # ================================================================
 def generar_imagen_respaldo(width=1080, height=1350):
     try:
@@ -98,7 +98,131 @@ def generar_imagen_respaldo(width=1080, height=1350):
         return f"https://via.placeholder.com/{width}x{height}/1a1a1a/303060"
 
 # ================================================================
-# FUNCIONES AUXILIARES
+# 📷 BUSCAR IMAGEN EN PEXELS (NUEVO)
+# ================================================================
+def generar_imagen_pexels(query, width=1080, height=1350, orientacion="vertical"):
+    """
+    Busca en Pexels usando la consulta y devuelve la URL de la imagen más adecuada.
+    Si falla, retorna una imagen de respaldo.
+    """
+    if not PEXELS_API_KEY:
+        print("⚠️ PEXELS_API_KEY no configurada. Usando imagen de respaldo.")
+        return generar_imagen_respaldo(width, height)
+
+    # Ajustar orientación para Pexels
+    if orientacion == "vertical" and width < height:
+        orientation_param = "portrait"
+    elif orientacion == "horizontal" and width > height:
+        orientation_param = "landscape"
+    else:
+        orientation_param = "square"
+
+    url = "https://api.pexels.com/v1/search"
+    headers = {"Authorization": PEXELS_API_KEY}
+    params = {
+        "query": query,
+        "per_page": 10,
+        "orientation": orientation_param,
+        "size": "large"
+    }
+
+    try:
+        response = requests.get(url, headers=headers, params=params, timeout=30)
+        if response.status_code == 200:
+            data = response.json()
+            if data.get("photos"):
+                photo = data["photos"][0]
+                src = photo.get("src")
+                if src:
+                    # Elegir la mejor resolución disponible
+                    image_url = src.get("large2x") or src.get("large") or src.get("original")
+                    print(f"📷 Imagen de Pexels: {image_url[:80]}...")
+                    return image_url
+                else:
+                    print("⚠️ Pexels no devolvió URL de imagen.")
+                    return generar_imagen_respaldo(width, height)
+            else:
+                print(f"⚠️ Pexels no encontró imágenes para: '{query}'")
+                return generar_imagen_respaldo(width, height)
+        else:
+            print(f"❌ Error en Pexels API: {response.status_code} - {response.text[:100]}")
+            return generar_imagen_respaldo(width, height)
+    except Exception as e:
+        print(f"❌ Excepción en Pexels: {e}")
+        return generar_imagen_respaldo(width, height)
+
+# ================================================================
+# 🔍 EXTRAER PALABRAS CLAVE PARA PEXELS
+# ================================================================
+def extraer_palabras_clave_pexels(segmento_texto, tema, personaje):
+    """
+    Analiza el segmento y extrae palabras clave relevantes para buscar en Pexels.
+    """
+    texto_limpio = limpiar_texto_para_imagen(segmento_texto)
+
+    # Extraer lugar
+    lugar = "Mexico"
+    match = re.search(r'en\s+([A-ZÁÉÍÓÚÑ][a-záéíóúñ]+\s*[A-ZÁÉÍÓÚÑ]?[a-záéíóúñ]*)', segmento_texto)
+    if match:
+        lugar = match.group(1).strip()
+
+    # Extraer hora
+    hora = "night"
+    if re.search(r'\b(3|2|1|4|5)\s*AM\b', segmento_texto, re.IGNORECASE):
+        hora = "early morning"
+    elif re.search(r'\b(atardecer|crepúsculo)\b', segmento_texto, re.IGNORECASE):
+        hora = "sunset"
+    elif re.search(r'\b(amanecer|madrugada)\b', segmento_texto, re.IGNORECASE):
+        hora = "sunrise"
+    elif re.search(r'\b(noche|medianoche)\b', segmento_texto, re.IGNORECASE):
+        hora = "night"
+
+    # Detectar objetos
+    objetos = []
+    if "auto" in texto_limpio.lower() or "camión" in texto_limpio.lower():
+        objetos.append("car")
+    if "calle" in texto_limpio.lower() or "avenida" in texto_limpio.lower():
+        objetos.append("street")
+    if "bosque" in texto_limpio.lower() or "árbol" in texto_limpio.lower():
+        objetos.append("forest")
+    if "río" in texto_limpio.lower() or "agua" in texto_limpio.lower() or "lago" in texto_limpio.lower():
+        objetos.append("river")
+    if "puente" in texto_limpio.lower():
+        objetos.append("bridge")
+    if "casa" in texto_limpio.lower() or "edificio" in texto_limpio.lower():
+        objetos.append("building")
+    if "iglesia" in texto_limpio.lower():
+        objetos.append("church")
+    if "cementerio" in texto_limpio.lower() or "panteón" in texto_limpio.lower():
+        objetos.append("cemetery")
+
+    # Construir consulta
+    query_parts = []
+    if lugar:
+        query_parts.append(lugar)
+    if hora:
+        query_parts.append(hora)
+    if objetos:
+        query_parts.extend(objetos[:2])
+    if not objetos:
+        query_parts.append("mexican")
+        query_parts.append("landscape")
+
+    # Palabras extra del tema
+    tema_lower = tema.lower()
+    if "fantasma" in tema_lower:
+        query_parts.append("ghost")
+    elif "llorona" in tema_lower:
+        query_parts.append("woman")
+    elif "vampiro" in tema_lower:
+        query_parts.append("dark")
+
+    query = " ".join(query_parts[:5])
+    print(f"🔍 Consulta Pexels: '{query}'")
+    return query
+
+# ================================================================
+# FUNCIONES AUXILIARES (cargar_temas, estado, etc.)
 # ================================================================
 def cargar_temas():
     try:
@@ -275,7 +399,7 @@ Devuelve SOLO el JSON, sin explicaciones, sin markdown.
         }
 
 # ================================================================
-# 🎭 DETECTOR DE ENTIDAD (para variar visuales)
+# 🎭 DETECTOR DE ENTIDAD (para variar visuales, se mantiene)
 # ================================================================
 def detectar_tipo_entidad(tema):
     t = tema.lower()
@@ -291,226 +415,17 @@ def detectar_tipo_entidad(tema):
         return "fantasma"
     return "misterio"
 
-DIRECTRICES_ENTIDAD = {
-    "vampiro": "an elegant tall vampire figure in dark Victorian clothing, pale skin, faintly glowing crimson eyes, standing among shadows at distance",
-    "lobo": "a massive black wolf silhouette with glowing amber eyes emerging from dense fog at distance",
-    "monstruo": "a towering dark creature silhouette with faint glowing eyes hidden between shadows at distance",
-    "bruja": "a hunched witch silhouette in black robes with faint green glowing eyes at distance",
-    "fantasma": "a translucent ghostly figure in white-gray with soft spectral glow at distance",
-    "misterio": "a faint dark silhouette far in the background, barely visible between shadows",
-}
-
 # ================================================================
-# 🎨 GENERAR PROMPT DE IMAGEN PERSONALIZADO POR SEGMENTO
+# 📝 GENERAR PROMPT DE IMAGEN (Para DeepSeek, pero ya no lo usamos con Agnes)
+# Ahora lo usamos solo para extraer palabras clave, pero mantenemos la función
+# para no romper dependencias. Realmente usamos extraer_palabras_clave_pexels.
 # ================================================================
-def generar_prompt_imagen(segmento_texto, tema, personaje, indice_segmento, total_segmentos, anio=None, genero=None, edad=None):
+def generar_prompt_imagen_para_pexels(segmento_texto, tema, personaje, indice_segmento, total_segmentos, anio=None, genero=None, edad=None):
     """
-    Genera un prompt de imagen ÚNICO para cada segmento, con variaciones de:
-    - Ubicación (extraída del texto)
-    - Hora del día (alterna entre noche, atardecer, amanecer)
-    - Ángulo de cámara (plano general, contrapicado, cenital, etc.)
-    - Paleta de colores (fría, cálida, neutra)
-    - Elementos clave (objetos, personas, vehículos de la época)
-    - Atmósfera (niebla, lluvia, luz de luna)
+    Esta función ahora solo sirve para construir la consulta de Pexels.
+    Devuelve las palabras clave en lugar de un prompt.
     """
-    # Extraer ubicación del segmento (intentar capturar lugar después de "en")
-    ubicacion = "México"
-    match = re.search(r'en\s+([A-ZÁÉÍÓÚÑ][a-záéíóúñ]+\s*[A-ZÁÉÍÓÚÑ]?[a-záéíóúñ]*)', segmento_texto)
-    if match:
-        ubicacion = match.group(1).strip()
-    
-    # Extraer hora si se menciona
-    hora = "noche"
-    if re.search(r'\b(3|2|1|4|5)\s*AM\b', segmento_texto, re.IGNORECASE):
-        hora = "madrugada"
-    elif re.search(r'\b(8|9|10|11)\s*PM\b', segmento_texto, re.IGNORECASE):
-        hora = "noche"
-    elif re.search(r'\b(atardecer|crepúsculo)\b', segmento_texto, re.IGNORECASE):
-        hora = "atardecer"
-    elif re.search(r'\b(amanecer|madrugada)\b', segmento_texto, re.IGNORECASE):
-        hora = "amanecer"
-    
-    # Elegir ángulo de cámara según índice
-    angulos = [
-        "wide establishing shot from a low angle looking up",
-        "medium shot from eye level",
-        "wide shot from a high angle (bird's eye view)",
-        "close-up of environment details",
-        "dutch angle (tilted) for unsettling mood",
-        "over-the-shoulder view",
-        "cinematic tracking shot, slight motion blur"
-    ]
-    angulo = angulos[indice_segmento % len(angulos)]
-    
-    # Elegir paleta de colores según índice
-    paletas = [
-        "dark blue and teal with amber streetlights",
-        "deep crimson and charcoal with moonlight highlights",
-        "muted sepia and warm amber tones",
-        "cold slate grey and pale blue with mist",
-        "vibrant orange and purple twilight",
-        "monochromatic silver and black with high contrast"
-    ]
-    paleta = paletas[indice_segmento % len(paletas)]
-    
-    # Elegir atmósfera según índice
-    atmosferas = [
-        "thick fog and volumetric light beams",
-        "light rain and wet surfaces reflecting light",
-        "heavy mist with silhouettes barely visible",
-        "clear night with bright moon and deep shadows",
-        "dusty atmosphere with golden hour light"
-    ]
-    atmosfera = atmosferas[indice_segmento % len(atmosferas)]
-    
-    # Construir época
-    if anio is None:
-        anio = 2015
-    if anio >= 2015:
-        epoca_mod = "present day contemporary era (2020s), modern vehicles, modern architecture, smartphones, LED lighting"
-    elif anio >= 2000:
-        epoca_mod = f"early 2000s era (year {anio}), 2000s cars, CRT TVs, flip phones, no smartphones"
-    elif anio >= 1990:
-        epoca_mod = f"1990s era (year {anio}), 90s cars, analog tech, 90s fashion, no modern devices"
-    elif anio >= 1980:
-        epoca_mod = f"1980s era (year {anio}), 80s cars, vintage clothing, older buildings, analog technology"
-    else:
-        epoca_mod = f"past era (year {anio}), classic cars, period clothing, aged architecture, no modern devices"
-    
-    # Personaje (si se menciona en el segmento)
-    if genero is None:
-        genero = "hombre"
-    if edad is None:
-        edad = 35
-    if genero == "mujer":
-        sujeto_humano = f"a {edad}-year-old Mexican woman"
-    else:
-        sujeto_humano = f"a {edad}-year-old Mexican man"
-    
-    # Detectar si el segmento menciona al personaje
-    menciona_personaje = "yo" in segmento_texto.lower() or "mi" in segmento_texto.lower() or "me" in segmento_texto.lower()
-    
-    prompt_deepseek = f"""Eres un EXPERTO EN DIRECCIÓN DE FOTOGRAFÍA CINEMATOGRÁFICA. Genera un prompt de imagen en INGLÉS para una fotografía VERTICAL (4:5) que represente la siguiente escena:
-
-ESCENA:
-\"\"\"
-{segmento_texto[:300]}
-\"\"\"
-
-INSTRUCCIONES ESPECÍFICAS:
-- UBICACIÓN: {ubicacion}, México
-- HORA DEL DÍA: {hora}
-- ESTILO DE CÁMARA: {angulo}
-- PALETA DE COLOR: {paleta}
-- ATMÓSFERA: {atmosfera}
-- ÉPOCA: {epoca_mod}
-- PERSONAJE: {sujeto_humano} ({"incluirlo de espaldas o a distancia, ocupando máximo 20% del encuadre" if menciona_personaje else "NO incluir personas, solo el entorno"})
-
-REGLAS ABSOLUTAS:
-1. La imagen debe ser REALISTA, como una fotografía de cine.
-2. El ENTORNO (edificios, calles, vehículos, paisajes) es el protagonista.
-3. Si hay persona, debe ser muy pequeña (menos del 20% del encuadre), de espaldas o a lo lejos.
-4. ESTILO: cinematográfico, fotografía nocturna, luces atmosféricas.
-5. PROHIBIDO mencionar: ghost, terror, horror, paranormal, supernatural, haunted, creepy, scary, evil, demon, devil, death, blood, gore, wound, kill, murder.
-6. La imagen debe ser apta para todo público.
-
-Ejemplo de prompt BUENO:
-"A cinematic vertical 4:5 photograph of a quiet street in a small Mexican town at night, with a vintage car parked under a streetlamp, soft fog, and a person walking away in the distance. Dark blue and amber tones, realistic photography."
-
-Devuelve SOLO el prompt en inglés, directo y concreto.
-"""
-    url = "https://api.deepseek.com/v1/chat/completions"
-    headers = {"Authorization": f"Bearer {DEEPSEEK_API_KEY}", "Content-Type": "application/json"}
-    payload = {
-        "model": "deepseek-chat",
-        "messages": [{"role": "user", "content": prompt_deepseek}],
-        "temperature": 0.6,
-        "max_tokens": 400,
-    }
-    try:
-        r = requests.post(url, headers=headers, json=payload, timeout=60)
-        r.raise_for_status()
-        prompt_imagen = r.json()["choices"][0]["message"]["content"].strip()
-        prompt_imagen = re.sub(r'["\']', '', prompt_imagen)
-        prompt_imagen = prompt_imagen.strip()
-        if not prompt_imagen.endswith('.'):
-            prompt_imagen += '.'
-        prompt_imagen += " vertical 4:5, realistic photography, no horror, no violence, no ghosts, no blood, no text."
-        return prompt_imagen
-    except Exception as e:
-        print(f"❌ Error generando prompt de imagen: {e}")
-        return "Vertical 4:5 cinematic photograph of an empty street at night with fog and lamplight, realistic style, no horror, no ghosts, no text."
-
-# ================================================================
-# 🛡️ FILTRAR Y REESCRIBIR PROMPT PARA AGNES
-# ================================================================
-def reescribir_prompt_seguro(prompt):
-    reemplazos = {
-        r'\bghost\b': 'silhouette',
-        r'\bphantom\b': 'figure',
-        r'\bspecter\b': 'shadow',
-        r'\bapparition\b': 'form',
-        r'\bhorror\b': 'atmosphere',
-        r'\bterror\b': 'mystery',
-        r'\bhaunted\b': 'old',
-        r'\bspooky\b': 'moody',
-        r'\bcreepy\b': 'dimly lit',
-        r'\bscary\b': 'dark',
-        r'\bevil\b': 'unsettling',
-        r'\bdemon\b': 'shadow',
-        r'\bdevil\b': 'figure',
-        r'\bdeath\b': 'stillness',
-        r'\bkill\b': 'silence',
-        r'\bmurder\b': 'incident',
-        r'\bblood\b': 'darkness',
-        r'\bgore\b': 'red tones',
-        r'\bwound\b': 'mark',
-        r'\binjury\b': 'scar',
-        r'\bparanormal\b': 'mysterious',
-        r'\bsupernatural\b': 'unexplained',
-        r'\bfear\b': 'tension',
-        r'\bpanic\b': 'intensity',
-        r'\bscream\b': 'echo',
-        r'\bshriek\b': 'sound',
-        r'\bhowl\b': 'wind',
-        r'\battack\b': 'silence',
-        r'\bassault\b': 'incident',
-        r'\bvicious\b': 'intense',
-        r'\bmenacing\b': 'dark',
-        r'\bthreatening\b': 'ominous',
-    }
-    prompt_limpio = prompt
-    for patron, sustituto in reemplazos.items():
-        prompt_limpio = re.sub(patron, sustituto, prompt_limpio, flags=re.IGNORECASE)
-    prompt_limpio = re.sub(r'\s+', ' ', prompt_limpio).strip()
-    palabras_prohibidas = [
-        "gore", "blood", "bleeding", "wound", "injury", "mutilated", "disfigured",
-        "corpse", "dead", "death", "dying", "kill", "murder", "assassination",
-        "suicide", "self-harm", "torture", "violent", "brutality", "massacre",
-        "slaughter", "decapitation", "hanging", "suffocation", "drowning",
-        "burned", "burnt", "scar", "deformed", "demonic", "satanic", "occult",
-        "ritual", "sacrifice", "cult", "possessed", "exorcism", "evil", "devil",
-        "hell", "damnation", "apocalypse", "dystopian", "post-apocalyptic",
-        "wasteland", "decay", "rotten", "mold", "fungus", "infected", "plague",
-        "virus", "zombie", "undead", "ghoul", "skeleton", "skull", "bone",
-        "grave", "tomb", "crypt", "cemetery", "morgue", "autopsy", "cadaver",
-        "bloodstained", "crimson", "red liquid", "dark mist", "shadow figure",
-        "ghost", "phantom", "apparition", "specter", "horror", "terror",
-        "frightening", "scary", "creepy", "sinister", "menacing", "threatening",
-        "gloom", "grim", "dread", "fear", "panic", "scream", "shriek", "howl",
-        "attack", "assault", "stabbing", "strangle", "choke", "cut", "slash",
-        "dead body", "murdered", "vicious", "haunted", "spooky",
-        "paranormal", "supernatural", "eerie", "uncanny", "macabre", "ghastly"
-    ]
-    for palabra in palabras_prohibidas:
-        prompt_limpio = re.sub(rf'\b{palabra}\b', '', prompt_limpio, flags=re.IGNORECASE)
-    prompt_limpio = re.sub(r'\s+', ' ', prompt_limpio).strip()
-    if len(prompt_limpio.split()) < 8:
-        return "Vertical 4:5 cinematic photograph of a quiet urban street at night with fog and streetlights, realistic style, no text."
-    return prompt_limpio
-
-def filtrar_prompt_para_agnes(prompt):
-    return reescribir_prompt_seguro(prompt)
+    return extraer_palabras_clave_pexels(segmento_texto, tema, personaje)
 
 # ================================================================
 # 📖 GENERAR HISTORIA COMPLETA (CON GANCHO, RESTRICCIÓN Y TÍTULO DE CURIOSIDAD)
@@ -682,66 +597,7 @@ def dividir_resumen_en_segmentos(resumen, num_segmentos=3):
         return segmentos
 
 # ================================================================
-# 🖼️ GENERAR IMAGEN CON AGNES (CON REINTENTOS)
-# ================================================================
-def generar_imagen_agnes(prompt, width=1080, height=1350, intentos=6, espera_segundos=15):
-    prompt_original = prompt
-    for intento in range(1, intentos + 1):
-        print(f"🎨 Intento {intento}/{intentos} generando imagen...")
-        if intento > 1:
-            prompt = reescribir_prompt_seguro(prompt_original)
-        if intento > 3:
-            prompt = "Vertical 4:5 cinematic photograph of a quiet urban street at night with fog and streetlights, realistic photography, no violence, no ghosts, no text."
-
-        prompt_limpio = prompt[:800]
-        url = "https://apihub.agnes-ai.com/v1/images/generations"
-        headers = {"Authorization": f"Bearer {AGNES_API_KEY}", "Content-Type": "application/json"}
-        negative = (
-            "close-up face, portrait, headshot, person filling frame, "
-            "deformed face, disfigured, mutated, bad anatomy, extra limbs, "
-            "extra fingers, asymmetrical eyes, malformed features, uncanny valley, "
-            "gaunt, emaciated, ugly, grotesque, gore, blood, "
-            "dilapidated, decrepit, run-down, crumbling, cracked walls, peeling paint, "
-            "moldy, musty, dusty, cobwebs, "
-            "sepia tone, monochrome, black and white, film grain, "
-            "duplicate people, cloned faces, multiple subjects, "
-            "dual face, split face, two faces, double face, mirror face, two heads, "
-            "cloned face, duplicate person, twin, twins, doppelganger, siamese, conjoined, "
-            "low quality, blurry, oversharpened, over-saturated, "
-            "text, letters, words, captions, subtitles, titles, watermarks, logos"
-        )
-        payload = {
-            "model": "agnes-image-2.1-flash",
-            "prompt": prompt_limpio,
-            "negative_prompt": negative,
-            "width": width,
-            "height": height,
-            "num_images": 1,
-        }
-        try:
-            response = requests.post(url, headers=headers, json=payload, timeout=90)
-            if response.status_code == 200:
-                data = response.json()
-                image_url = data["data"][0]["url"]
-                print(f"✅ Imagen generada (intento {intento})")
-                return image_url
-            else:
-                error_msg = response.text[:200]
-                print(f"❌ Error en Agnes: {response.status_code} - {error_msg}")
-                if "content_policy_violation" in error_msg:
-                    print(f"⚠️ Violación de política (intento {intento}). Reescribiendo prompt...")
-                    time.sleep(espera_segundos)
-                    continue
-                else:
-                    time.sleep(espera_segundos)
-        except Exception as e:
-            print(f"❌ Error de conexión: {e}")
-            time.sleep(espera_segundos)
-    print("⚠️ Agnes falló tras todos los intentos. Se usará imagen de respaldo.")
-    return None
-
-# ================================================================
-# 🎤 GENERAR AUDIO CON EDGE-TTS
+# 🎤 GENERAR AUDIO CON EDGE-TTS (íntegro)
 # ================================================================
 def generar_audio_edge_tts(texto, index):
     global CONFIG_VOZ_ACTUAL
@@ -819,7 +675,7 @@ def generar_audio_edge_tts(texto, index):
     return None
 
 # ================================================================
-# 🎥 ZOOM LENTO
+# 🎥 ZOOM LENTO (íntegro)
 # ================================================================
 def aplicar_zoom_lento(clip, zoom_final=1.10):
     dur = clip.duration
@@ -841,7 +697,7 @@ def aplicar_zoom_lento(clip, zoom_final=1.10):
     return clip.transform(efecto)
 
 # ================================================================
-# 🎬 CREAR SUBTÍTULO POR SEGMENTO
+# 🎬 CREAR SUBTÍTULO POR SEGMENTO (íntegro)
 # ================================================================
 def crear_subtitulo_por_segmento(texto, duracion, video_size=(1080, 1920)):
     lineas = []
@@ -917,7 +773,7 @@ def crear_subtitulo_por_segmento(texto, duracion, video_size=(1080, 1920)):
         return None
 
 # ================================================================
-# 🎬 CREAR VIDEO CON MÚLTIPLES ESCENAS, MÚSICA Y SUBTÍTULOS
+# 🎬 CREAR VIDEO CON MÚLTIPLES ESCENAS, MÚSICA Y SUBTÍTULOS (íntegro, pero usando Pexels)
 # ================================================================
 def crear_y_subir_video(texto, imagen_url, historia_completa, tema, personaje, num_escenas=3):
     if not CLOUDINARY_DISPONIBLE:
@@ -934,31 +790,21 @@ def crear_y_subir_video(texto, imagen_url, historia_completa, tema, personaje, n
     
     print(f"📝 Generando {len(segmentos_texto)} imágenes para el Reel...")
     
-    # Obtener datos del personaje para los prompts
+    # Obtener datos del personaje para las consultas Pexels
     genero = personaje.get("genero", "hombre")
     edad = personaje.get("edad_aprox", 35)
     anio = personaje.get("anio", 2015)
     
     urls_imagenes = []
     for i, seg in enumerate(segmentos_texto):
-        print(f"🎨 Generando prompt para segmento {i+1}/{len(segmentos_texto)}...")
-        # Generar prompt personalizado para este segmento
-        img_prompt = generar_prompt_imagen(
-            segmento_texto=seg,
-            tema=tema,
-            personaje=personaje,
-            indice_segmento=i,
-            total_segmentos=len(segmentos_texto),
-            anio=anio,
-            genero=genero,
-            edad=edad
-        )
-        # Imprimir parte del prompt para depuración
-        print(f"   📝 Prompt: {img_prompt[:120]}...")
-        img_url = generar_imagen_agnes(img_prompt, width=1080, height=1920, intentos=4, espera_segundos=10)
+        print(f"🔍 Generando consulta Pexels para segmento {i+1}/{len(segmentos_texto)}...")
+        # Extraer palabras clave
+        query = extraer_palabras_clave_pexels(seg, tema, personaje)
+        # Buscar imagen en Pexels
+        img_url = generar_imagen_pexels(query, width=1080, height=1920, orientacion="vertical")
         if img_url:
             urls_imagenes.append(img_url)
-            print(f"✅ Imagen {i+1}/{len(segmentos_texto)} generada")
+            print(f"✅ Imagen {i+1}/{len(segmentos_texto)} obtenida de Pexels")
         else:
             if imagen_url:
                 urls_imagenes.append(imagen_url)
@@ -1115,15 +961,15 @@ def crear_y_subir_video(texto, imagen_url, historia_completa, tema, personaje, n
                 pass
 
 # ================================================================
-# MAIN
+# MAIN (completo, con Pexels)
 # ================================================================
 def main():
     print(f"🎤 Voz inicial: {CONFIG_VOZ_ACTUAL['voz']} ({CONFIG_VOZ_ACTUAL['velocidad']})")
-    print("👻 Iniciando Bot de Terror (Ganchos + Restricciones + Imágenes personalizadas por segmento)")
+    print("👻 Iniciando Bot de Terror (Pexels + Ganchos + Restricciones + Múltiples escenas)")
     print(f"📅 {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
 
-    if not all([DEEPSEEK_API_KEY, MAKE_WEBHOOK_URL_TERROR, AGNES_API_KEY]):
-        print("❌ Faltan variables de entorno (DEEPSEEK, MAKE, AGNES).")
+    if not all([DEEPSEEK_API_KEY, MAKE_WEBHOOK_URL_TERROR, PEXELS_API_KEY]):
+        print("❌ Faltan variables de entorno: DEEPSEEK_API_KEY, MAKE_WEBHOOK_URL_TERROR, PEXELS_API_KEY")
         sys.exit(1)
 
     temas = cargar_temas()
@@ -1163,20 +1009,11 @@ def main():
 
     personaje_post = detectar_personaje_y_epoca(historia_post)
 
-    print("🎨 Generando imagen para POST (4:5)...")
-    prompt_post = generar_prompt_imagen(
-        segmento_texto=historia_post[:500],
-        tema=tema_post,
-        personaje=personaje_post,
-        indice_segmento=0,
-        total_segmentos=1,
-        anio=personaje_post.get("anio", 2015),
-        genero=personaje_post.get("genero", "hombre"),
-        edad=personaje_post.get("edad_aprox", 35)
-    )
-    image_post_url = generar_imagen_agnes(prompt_post, width=1080, height=1350, intentos=6)
+    print("🎨 Buscando imagen para POST (4:5) en Pexels...")
+    query_post = extraer_palabras_clave_pexels(historia_post[:500], tema_post, personaje_post)
+    image_post_url = generar_imagen_pexels(query_post, width=1080, height=1350, orientacion="vertical")
     if not image_post_url:
-        print("⚠️ Agnes falló para el post. Usando imagen de respaldo...")
+        print("⚠️ Pexels falló para el post. Usando imagen de respaldo...")
         image_post_url = generar_imagen_respaldo(1080, 1350)
 
     texto_post_limpio = agregar_cta_final(historia_post)
@@ -1215,20 +1052,11 @@ def main():
     resumen_reel = generar_resumen_reel(historia_reel, restriccion_reel)
     print(f"✅ Resumen Reel: {len(resumen_reel.split())} palabras")
 
-    print("🎨 Generando imagen de respaldo para Reel (9:16)...")
-    prompt_reel = generar_prompt_imagen(
-        segmento_texto=historia_reel[:500],
-        tema=tema_reel,
-        personaje=personaje_reel,
-        indice_segmento=0,
-        total_segmentos=1,
-        anio=personaje_reel.get("anio", 2015),
-        genero=personaje_reel.get("genero", "hombre"),
-        edad=personaje_reel.get("edad_aprox", 35)
-    ).replace("4:5", "9:16")
-    image_reel_url = generar_imagen_agnes(prompt_reel, width=1080, height=1920, intentos=4)
+    print("🎨 Buscando imagen de respaldo para Reel (9:16) en Pexels...")
+    query_reel = extraer_palabras_clave_pexels(historia_reel[:500], tema_reel, personaje_reel)
+    image_reel_url = generar_imagen_pexels(query_reel, width=1080, height=1920, orientacion="vertical")
     if not image_reel_url:
-        print("⚠️ No se pudo generar imagen de respaldo para el Reel. Se usará una genérica.")
+        print("⚠️ No se pudo obtener imagen de Pexels para el Reel. Se usará una genérica.")
         image_reel_url = generar_imagen_respaldo(1080, 1920)
 
     reel_video_url = None
@@ -1247,7 +1075,7 @@ def main():
         print("⏭️ Cloudinary no configurado, omitiendo Reel.")
 
     hashtags_texto = "#LeyendasMexicanas #Terror #Misterio #Paranormal #Mexico"
-    descripcion_reel = f"🌙 {titulo_historia_reel}\n\n{resumen_reel}\n\n{hashtags_texto}\n\n_Imágenes y voz generados con IA._"
+    descripcion_reel = f"🌙 {titulo_historia_reel}\n\n{resumen_reel}\n\n{hashtags_texto}\n\n_Imágenes generadas con IA._"
 
     # ==========================================
     # 3. ENVIAR A MAKE
