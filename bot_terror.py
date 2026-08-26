@@ -80,11 +80,15 @@ def descargar_musica_fondo():
         return None
 
 # ================================================================
-# 🖼️ GENERAR IMAGEN DE RESPALDO
+# 🖼️ GENERAR IMAGEN DE RESPALDO (con variación)
 # ================================================================
+ULTIMA_URL_USADA = None
+
 def generar_imagen_respaldo(width=1080, height=1350):
     try:
-        img = Image.new("RGB", (width, height), (15, 15, 30))
+        # Usar un color aleatorio para que no sea siempre el mismo
+        color_fondo = (random.randint(10, 40), random.randint(10, 40), random.randint(10, 40))
+        img = Image.new("RGB", (width, height), color_fondo)
         path = f"respaldo_{random.randint(1000,9999)}.jpg"
         img.save(path)
         if CLOUDINARY_DISPONIBLE:
@@ -98,9 +102,10 @@ def generar_imagen_respaldo(width=1080, height=1350):
         return f"https://via.placeholder.com/{width}x{height}/1a1a1a/303060"
 
 # ================================================================
-# 📷 BUSCAR IMAGEN EN PEXELS
+# 📷 BUSCAR IMAGEN EN PEXELS (con variación de página y consulta)
 # ================================================================
-def generar_imagen_pexels(query, width=1080, height=1350, orientacion="vertical"):
+def generar_imagen_pexels(query, width=1080, height=1350, orientacion="vertical", page=1):
+    global ULTIMA_URL_USADA
     if not PEXELS_API_KEY:
         print("⚠️ PEXELS_API_KEY no configurada. Usando imagen de respaldo.")
         return generar_imagen_respaldo(width, height)
@@ -112,13 +117,19 @@ def generar_imagen_pexels(query, width=1080, height=1350, orientacion="vertical"
     else:
         orientation_param = "square"
 
+    # Añadir variación a la consulta para evitar repeticiones
+    variantes = ["angle", "view", "perspective", "mood", "atmosphere", "lighting", "scene"]
+    variacion = random.choice(variantes)
+    query_variada = f"{query} {variacion}"
+
     url = "https://api.pexels.com/v1/search"
     headers = {"Authorization": PEXELS_API_KEY}
     params = {
-        "query": query,
+        "query": query_variada,
         "per_page": 10,
         "orientation": orientation_param,
-        "size": "large"
+        "size": "large",
+        "page": page
     }
 
     try:
@@ -126,17 +137,30 @@ def generar_imagen_pexels(query, width=1080, height=1350, orientacion="vertical"
         if response.status_code == 200:
             data = response.json()
             if data.get("photos"):
-                photo = data["photos"][0]
-                src = photo.get("src")
+                # Intentar elegir una foto diferente a la última usada
+                fotos = data["photos"]
+                # Si hay más de una, elegir aleatoriamente
+                if len(fotos) > 1:
+                    foto = random.choice(fotos)
+                else:
+                    foto = fotos[0]
+                src = foto.get("src")
                 if src:
                     image_url = src.get("large2x") or src.get("large") or src.get("original")
+                    # Verificar que no sea la misma URL que la última usada (si es igual, forzar otra página)
+                    if ULTIMA_URL_USADA and image_url == ULTIMA_URL_USADA:
+                        # Reintentar con otra página
+                        new_page = (page % 5) + 1
+                        print(f"⚠️ URL repetida, reintentando con página {new_page}...")
+                        return generar_imagen_pexels(query, width, height, orientacion, new_page)
+                    ULTIMA_URL_USADA = image_url
                     print(f"📷 Imagen de Pexels: {image_url[:80]}...")
                     return image_url
                 else:
                     print("⚠️ Pexels no devolvió URL de imagen.")
                     return generar_imagen_respaldo(width, height)
             else:
-                print(f"⚠️ Pexels no encontró imágenes para: '{query}'")
+                print(f"⚠️ Pexels no encontró imágenes para: '{query_variada}'")
                 return generar_imagen_respaldo(width, height)
         else:
             print(f"❌ Error en Pexels API: {response.status_code} - {response.text[:100]}")
@@ -149,9 +173,9 @@ def generar_imagen_pexels(query, width=1080, height=1350, orientacion="vertical"
         return generar_imagen_respaldo(width, height)
 
 # ================================================================
-# 🔍 EXTRAER PALABRAS CLAVE PARA PEXELS
+# 🔍 EXTRAER PALABRAS CLAVE PARA PEXELS (con variación)
 # ================================================================
-def extraer_palabras_clave_pexels(segmento_texto, tema, personaje):
+def extraer_palabras_clave_pexels(segmento_texto, tema, personaje, indice_segmento=0):
     texto_limpio = limpiar_texto_para_imagen(segmento_texto)
     lugar = "Mexico"
     match = re.search(r'en\s+([A-ZÁÉÍÓÚÑ][a-záéíóúñ]+\s*[A-ZÁÉÍÓÚÑ]?[a-záéíóúñ]*)', segmento_texto)
@@ -200,12 +224,16 @@ def extraer_palabras_clave_pexels(segmento_texto, tema, personaje):
         query_parts.append("woman")
     elif "vampiro" in tema_lower:
         query_parts.append("dark")
+    # Añadir variación por índice para que cada segmento tenga consulta diferente
+    variantes = ["angle", "view", "perspective", "mood", "atmosphere", "lighting", "scene"]
+    variacion = variantes[indice_segmento % len(variantes)]
+    query_parts.append(variacion)
     query = " ".join(query_parts[:5])
     print(f"🔍 Consulta Pexels: '{query}'")
     return query
 
 # ================================================================
-# FUNCIONES AUXILIARES
+# FUNCIONES AUXILIARES (cargar_temas, estado, etc.)
 # ================================================================
 def cargar_temas():
     try:
@@ -727,7 +755,7 @@ def crear_subtitulo_por_segmento(texto, duracion, video_size=(1080, 1920)):
         return None
 
 # ================================================================
-# 🎬 CREAR VIDEO CON MÚLTIPLES ESCENAS, MÚSICA Y SUBTÍTULOS
+# 🎬 CREAR VIDEO CON MÚLTIPLES ESCENAS, MÚSICA Y SUBTÍTULOS (con imágenes variables)
 # ================================================================
 def crear_y_subir_video(texto, imagen_url, historia_completa, tema, personaje, num_escenas=3):
     if not CLOUDINARY_DISPONIBLE:
@@ -751,8 +779,11 @@ def crear_y_subir_video(texto, imagen_url, historia_completa, tema, personaje, n
     urls_imagenes = []
     for i, seg in enumerate(segmentos_texto):
         print(f"🔍 Generando consulta Pexels para segmento {i+1}/{len(segmentos_texto)}...")
-        query = extraer_palabras_clave_pexels(seg, tema, personaje)
-        img_url = generar_imagen_pexels(query, width=1080, height=1920, orientacion="vertical")
+        # Pasar el índice para variar la consulta y la página
+        query = extraer_palabras_clave_pexels(seg, tema, personaje, indice_segmento=i)
+        # Usar página diferente para cada segmento (evita repeticiones)
+        page = (i % 5) + 1
+        img_url = generar_imagen_pexels(query, width=1080, height=1920, orientacion="vertical", page=page)
         if img_url:
             urls_imagenes.append(img_url)
             print(f"✅ Imagen {i+1}/{len(segmentos_texto)} obtenida de Pexels")
@@ -961,8 +992,8 @@ def main():
     personaje_post = detectar_personaje_y_epoca(historia_post)
 
     print("🎨 Buscando imagen para POST (4:5) en Pexels...")
-    query_post = extraer_palabras_clave_pexels(historia_post[:500], tema_post, personaje_post)
-    image_post_url = generar_imagen_pexels(query_post, width=1080, height=1350, orientacion="vertical")
+    query_post = extraer_palabras_clave_pexels(historia_post[:500], tema_post, personaje_post, indice_segmento=0)
+    image_post_url = generar_imagen_pexels(query_post, width=1080, height=1350, orientacion="vertical", page=1)
     if not image_post_url:
         print("⚠️ Pexels falló para el post. Usando imagen de respaldo...")
         image_post_url = generar_imagen_respaldo(1080, 1350)
@@ -1004,8 +1035,8 @@ def main():
     print(f"✅ Resumen Reel: {len(resumen_reel.split())} palabras")
 
     print("🎨 Buscando imagen de respaldo para Reel (9:16) en Pexels...")
-    query_reel = extraer_palabras_clave_pexels(historia_reel[:500], tema_reel, personaje_reel)
-    image_reel_url = generar_imagen_pexels(query_reel, width=1080, height=1920, orientacion="vertical")
+    query_reel = extraer_palabras_clave_pexels(historia_reel[:500], tema_reel, personaje_reel, indice_segmento=0)
+    image_reel_url = generar_imagen_pexels(query_reel, width=1080, height=1920, orientacion="vertical", page=1)
     if not image_reel_url:
         print("⚠️ No se pudo obtener imagen de Pexels para el Reel. Se usará una genérica.")
         image_reel_url = generar_imagen_respaldo(1080, 1920)
