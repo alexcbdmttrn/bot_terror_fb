@@ -17,6 +17,10 @@ from PIL import Image, ImageDraw, ImageFont
 import io
 import glob
 import atexit
+import urllib3
+
+# Silenciar advertencias de certificados SSL de urllib3 (inofensivas en este contexto)
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # ================================================================
 # CONFIGURACIÓN
@@ -80,7 +84,7 @@ def descargar_musica_fondo():
         return None
 
 # ================================================================
-# ️ GENERAR IMAGEN DE RESPALDO (con variación)
+# 🖼️ GENERAR IMAGEN DE RESPALDO (con variación)
 # ================================================================
 def generar_imagen_respaldo(width=1080, height=1350):
     try:
@@ -99,7 +103,7 @@ def generar_imagen_respaldo(width=1080, height=1350):
         return f"https://via.placeholder.com/{width}x{height}/1a1a1a/303060"
 
 # ================================================================
-# 📷 BUSCAR IMAGEN EN PEXELS (CORREGIDO - Sin caché)
+# 📷 BUSCAR IMAGEN EN PEXELS (Sin caché, con variación)
 # ================================================================
 def generar_imagen_pexels(query, width=1080, height=1350, orientacion="vertical", page=None):
     if not PEXELS_API_KEY:
@@ -126,7 +130,7 @@ def generar_imagen_pexels(query, width=1080, height=1350, orientacion="vertical"
     headers = {"Authorization": PEXELS_API_KEY}
     params = {
         "query": query_variada,
-        "per_page": 15,  # Más opciones para elegir
+        "per_page": 15,
         "orientation": orientation_param,
         "size": "large",
         "page": page
@@ -144,7 +148,7 @@ def generar_imagen_pexels(query, width=1080, height=1350, orientacion="vertical"
                 src = foto.get("src")
                 if src:
                     image_url = src.get("large2x") or src.get("large") or src.get("original")
-                    print(f" Imagen de Pexels: {image_url[:80]}...")
+                    print(f"📷 Imagen de Pexels: {image_url[:80]}...")
                     return image_url
                 else:
                     print("⚠️ Pexels no devolvió URL de imagen.")
@@ -156,7 +160,7 @@ def generar_imagen_pexels(query, width=1080, height=1350, orientacion="vertical"
             print(f"❌ Error en Pexels API: {response.status_code} - {response.text[:100]}")
             return generar_imagen_respaldo(width, height)
     except requests.exceptions.Timeout:
-        print(" Timeout en Pexels. Usando imagen de respaldo.")
+        print("⏰ Timeout en Pexels. Usando imagen de respaldo.")
         return generar_imagen_respaldo(width, height)
     except Exception as e:
         print(f"❌ Excepción en Pexels: {e}")
@@ -242,9 +246,11 @@ def cargar_estado():
                 data["publicados"] = []
             if "ultimo_tema" not in data:
                 data["ultimo_tema"] = ""
+            if "reintentar_en_siguiente" not in data:
+                data["reintentar_en_siguiente"] = False
             return data
     except:
-        return {"publicados": [], "ultimo_tema": ""}
+        return {"publicados": [], "ultimo_tema": "", "reintentar_en_siguiente": False}
 
 def guardar_estado(estado):
     with open(ESTADO_FILE, "w", encoding="utf-8") as f:
@@ -327,12 +333,12 @@ def descargar_imagen_con_retry(url, intentos=2, timeout=15):
 # ================================================================
 CTAS_FINALES = [
     "\n\n💀 ¿Te ha pasado algo parecido? Cuéntanos tu historia en comentarios. 👇",
-    "\n\n ¿Conoces una leyenda similar? Compártela en los comentarios. 👇",
+    "\n\n👻 ¿Conoces una leyenda similar? Compártela en los comentarios. 👇",
     "\n\n🌙 ¿Qué harías tú en esta situación? Te leemos en comentarios. 👇",
-    "\n\n👁️ ¿Crees que estas historias son reales? Déjanos tu opinión. ",
+    "\n\n👁️ ¿Crees que estas historias son reales? Déjanos tu opinión. 👇",
     "\n\n🔮 ¿Has vivido algo sobrenatural? Cuéntanos tu experiencia. 👇",
     "\n\n😱 ¿Te atreverías a visitar este lugar? Cuéntanos. 👇",
-    "\n\n ¿Conoces más historias así? Compártelas en comentarios. 👇",
+    "\n\n🌑 ¿Conoces más historias así? Compártelas en comentarios. 👇",
     "\n\n💬 Tu historia puede ser la siguiente. Cuéntanos. 👇",
 ]
 
@@ -388,7 +394,7 @@ Devuelve SOLO el JSON, sin explicaciones, sin markdown.
         print(f"🧑 Personaje detectado: {data.get('genero', '?')}, {data.get('edad_aprox', '?')} años | 🗓️ Época: {data.get('anio', '?')}")
         return data
     except Exception as e:
-        print(f"️ Error detectando personaje: {e}. Usando valores por defecto.")
+        print(f"⚠️ Error detectando personaje: {e}. Usando valores por defecto.")
         return {
             "genero": "hombre",
             "edad_aprox": 35,
@@ -742,7 +748,7 @@ def crear_subtitulo_por_segmento(texto, duracion, video_size=(1080, 1920)):
         return None
 
 # ================================================================
-# 🎬 CREAR VIDEO CON MÚLTIPLES ESCENAS (CORREGIDO)
+# 🎬 CREAR VIDEO CON MÚLTIPLES ESCENAS (100% CORREGIDO)
 # ================================================================
 def crear_y_subir_video(texto, imagen_url, historia_completa, tema, personaje, num_escenas=3):
     if not CLOUDINARY_DISPONIBLE:
@@ -759,14 +765,10 @@ def crear_y_subir_video(texto, imagen_url, historia_completa, tema, personaje, n
     
     print(f"📝 Generando {len(segmentos_texto)} imágenes únicas para el Reel...")
     
-    genero = personaje.get("genero", "hombre")
-    edad = personaje.get("edad_aprox", 35)
-    anio = personaje.get("anio", 2015)
-    
     urls_imagenes = []
     for i, seg in enumerate(segmentos_texto):
         print(f"🔍 Generando consulta Pexels para segmento {i+1}/{len(segmentos_texto)}...")
-        # Cada segmento usa página diferente basada en tiempo + índice
+        # Cada segmento usa página diferente basada en tiempo + índice para evitar caché
         page = ((int(time.time()) + i) % 10) + 1
         query = extraer_palabras_clave_pexels(seg, tema, personaje, indice_segmento=i)
         img_url = generar_imagen_pexels(query, width=1080, height=1920, orientacion="vertical", page=page)
@@ -813,7 +815,7 @@ def crear_y_subir_video(texto, imagen_url, historia_completa, tema, personaje, n
                 from moviepy import concatenate_audioclips
                 fondo_audio = concatenate_audioclips([fondo_audio] * veces)
             fondo_audio = fondo_audio.subclipped(0, duracion_total).with_volume_scaled(0.08)
-            print(" Música de fondo cargada desde archivo local")
+            print("🎵 Música de fondo cargada desde archivo local")
         except Exception as e:
             print(f"⚠️ Error con música de fondo: {e}")
             fondo_audio = None
@@ -931,27 +933,35 @@ def crear_y_subir_video(texto, imagen_url, historia_completa, tema, personaje, n
                 pass
 
 # ================================================================
-# MAIN (CORREGIDO - Sin imagen de respaldo fija)
+# MAIN (100% COMPLETO CON REINTENTOS Y ESTADO)
 # ================================================================
 def main():
     print(f"🎤 Voz inicial: {CONFIG_VOZ_ACTUAL['voz']} ({CONFIG_VOZ_ACTUAL['velocidad']})")
-    print("👻 Iniciando Bot de Terror (Pexels + Imágenes únicas por reel)")
+    print("👻 Iniciando Bot de Terror (Pexels + Imágenes únicas + Reintentos)")
     print(f"📅 {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
 
     if not all([DEEPSEEK_API_KEY, MAKE_WEBHOOK_URL_TERROR, PEXELS_API_KEY]):
         print("❌ Faltan variables de entorno: DEEPSEEK_API_KEY, MAKE_WEBHOOK_URL_TERROR, PEXELS_API_KEY")
         sys.exit(1)
 
-    temas = cargar_temas()
-    print(f" {len(temas)} temas cargados")
-
     estado = cargar_estado()
+    
+    # Verificar si necesitamos reintentar por fallo anterior
+    if estado.get("reintentar_en_siguiente", False):
+        print("🔄 Reintentando publicación por fallo anterior detectado...")
+        estado["reintentar_en_siguiente"] = False
+        estado["ultimo_intento_fallido"] = None
+    else:
+        print("✅ Iniciando publicación programada normal")
+
+    temas = cargar_temas()
+    print(f"📚 {len(temas)} temas cargados")
     
     # ==========================================
     # 1. GENERAR POST (Relato A)
     # ==========================================
     tema_post = obtener_tema_no_repetido(temas, estado)
-    print(f" Tema POST seleccionado: {tema_post}")
+    print(f"📖 Tema POST seleccionado: {tema_post}")
 
     print("📝 Generando historia para POST (con gancho y restricción)...")
     historia_post = generar_historia_completa(tema_post)
@@ -971,9 +981,9 @@ def main():
         elif linea.startswith('RESTRICCION:'):
             restriccion = linea.replace('RESTRICCION:', '').strip()
         elif linea.strip().startswith('🌙'):
-            titulo_historia_post = linea.strip().replace('', '').strip()
+            titulo_historia_post = linea.strip().replace('🌙', '').strip()
     
-    print(f" Gancho POST: {gancho_post}")
+    print(f"🎯 Gancho POST: {gancho_post}")
     print(f"🔒 Restricción: {restriccion}")
 
     personaje_post = detectar_personaje_y_epoca(historia_post)
@@ -1022,9 +1032,8 @@ def main():
     resumen_reel = generar_resumen_reel(historia_reel, restriccion_reel)
     print(f"✅ Resumen Reel: {len(resumen_reel.split())} palabras")
 
-    # CORRECCIÓN: No buscar imagen de respaldo, el video generará sus propias 3 imágenes
-    print(" El video generará 3 imágenes únicas desde Pexels automáticamente")
-    image_reel_url = None  # <-- IMPORTANTE: Pasar None
+    print("🎥 El video generará 3 imágenes únicas desde Pexels automáticamente")
+    image_reel_url = None  # <-- IMPORTANTE: Forzar generación única
 
     reel_video_url = None
     if CLOUDINARY_DISPONIBLE:
@@ -1038,6 +1047,10 @@ def main():
         )
         if not reel_video_url:
             print("⚠️ Falló la creación/subida del video.")
+            estado["ultimo_intento_fallido"] = datetime.now().isoformat()
+            estado["reintentar_en_siguiente"] = True
+            guardar_estado(estado)
+            sys.exit(1)
     else:
         print("⏭️ Cloudinary no configurado, omitiendo Reel.")
 
@@ -1045,7 +1058,7 @@ def main():
     descripcion_reel = f"🌙 {titulo_historia_reel}\n\n{resumen_reel}\n\n{hashtags_texto}\n\n_Imágenes de Pexels y voz generada con IA._"
 
     # ==========================================
-    # 3. ENVIAR A MAKE
+    # 3. ENVIAR A MAKE CON REINTENTO
     # ==========================================
     payload = {
         "post_message": texto_final_post,
@@ -1057,30 +1070,49 @@ def main():
     }
 
     print("📤 Enviando a Make...")
-    try:
-        r = requests.post(MAKE_WEBHOOK_URL_TERROR, json=payload, timeout=30)
-        if r.status_code in [200, 201, 202]:
-            print("✅ Enviado a Make correctamente")
-            if tema_post not in estado.get("publicados", []):
-                estado["publicados"].append(tema_post)
-            if tema_reel not in estado.get("publicados", []):
-                estado["publicados"].append(tema_reel)
-            estado["ultimo_tema"] = tema_reel
-            guardar_estado(estado)
-            print(f"✅ Relatos publicados: POST ({tema_post}) | REEL ({tema_reel})")
-        else:
-            print(f"❌ Make respondió: {r.status_code}")
-            print(f"   Respuesta: {r.text[:200]}")
-    except Exception as e:
-        print(f" Error enviando a Make: {e}")
-
-    print("🎉 Proceso completado")
+    exito = False
+    for intento in range(3):
+        try:
+            r = requests.post(MAKE_WEBHOOK_URL_TERROR, json=payload, timeout=60)
+            if r.status_code in [200, 201, 202]:
+                print(f"✅ Enviado a Make correctamente (intento {intento+1})")
+                exito = True
+                break
+            else:
+                print(f"⚠️ Make respondió: {r.status_code} (intento {intento+1}/3)")
+                if intento < 2:
+                    print(f"   Reintentando en 30 segundos...")
+                    time.sleep(30)
+        except Exception as e:
+            print(f"❌ Error enviando a Make (intento {intento+1}/3): {e}")
+            if intento < 2:
+                print(f"   Reintentando en 30 segundos...")
+                time.sleep(30)
+    
+    if exito:
+        if tema_post not in estado.get("publicados", []):
+            estado["publicados"].append(tema_post)
+        if tema_reel not in estado.get("publicados", []):
+            estado["publicados"].append(tema_reel)
+        estado["ultimo_tema"] = tema_reel
+        estado["ultima_publicacion_exitosa"] = datetime.now().isoformat()
+        estado["ultimo_intento_fallido"] = None
+        estado["reintentar_en_siguiente"] = False
+        guardar_estado(estado)
+        print(f"✅ Relatos publicados: POST ({tema_post}) | REEL ({tema_reel})")
+        print("🎉 Proceso completado exitosamente")
+    else:
+        print("❌ No se pudo enviar a Make después de 3 intentos")
+        estado["ultimo_intento_fallido"] = datetime.now().isoformat()
+        estado["reintentar_en_siguiente"] = True
+        guardar_estado(estado)
+        sys.exit(1)
 
 if __name__ == "__main__":
     try:
         main()
     except Exception as e:
-        print(f" Error fatal: {e}")
+        print(f"❌ Error fatal: {e}")
         import traceback
         traceback.print_exc()
         sys.exit(1)
