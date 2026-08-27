@@ -46,7 +46,12 @@
     "El platillo volador sobre el Teatro Juárez, Guanajuato",
     "La mujer del malecón de Tepic, Nayarit",
     "El fantasma del Palacio de los Ángeles en Querétaro",
-    "La bruja del cerro de la Estrella, CDMX"
+    "La bruja del cerro de la Estrella, CDMX",
+    "La llorona del río Grijalva en Tabasco",
+    "La bruja de la Albarradón, Aguascalientes, Aguascalientes"
   ],
-  "ultimo_tema": "La bruja del cerro de la Estrella, CDMX"
+  "ultimo_tema": "La bruja de la Albarradón, Aguascalientes, Aguascalientes",
+  "reintentar_en_siguiente": false,
+  "ultima_publicacion_exitosa": "2026-08-27T23:07:21.818914",
+  "ultimo_intento_fallido": null
 }
