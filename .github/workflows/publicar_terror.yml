@@ -2,9 +2,9 @@ name: Bot Terror Publicacion
 
 on:
   schedule:
-    - cron: '0 14 * * *'
-    - cron: '0 21 * * *'
-    - cron: '0 0 * * *'
+    - cron: '17 14 * * *'   # Se ejecuta ~8:17 AM CDMX (14:17 UTC)
+    - cron: '34 21 * * *'   # Se ejecuta ~3:34 PM CDMX (21:34 UTC)
+    - cron: '42 0 * * *'    # Se ejecuta ~6:42 PM CDMX (00:42 UTC del día siguiente)
   workflow_dispatch:
 
 permissions:
