@@ -50,10 +50,12 @@
     "La llorona del río Grijalva en Tabasco",
     "La bruja de la Albarradón, Aguascalientes, Aguascalientes",
     "La mujer de blanco en la playa de Playa del Carmen",
-    "La casa del espanto de Zacatecas"
+    "La casa del espanto de Zacatecas",
+    "La casa del espanto de la calle de los Sapos, Puebla",
+    "La sombra del Faro de Mazatlán, Sinaloa"
   ],
-  "ultimo_tema": "La casa del espanto de Zacatecas",
+  "ultimo_tema": "La sombra del Faro de Mazatlán, Sinaloa",
   "reintentar_en_siguiente": false,
-  "ultima_publicacion_exitosa": "2026-08-28T05:12:54.657284",
+  "ultima_publicacion_exitosa": "2026-08-28T09:47:24.166969",
   "ultimo_intento_fallido": null
 }
