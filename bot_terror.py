@@ -19,7 +19,6 @@ import glob
 import atexit
 import urllib3
 
-# Silenciar advertencias de certificados SSL de urllib3 (inofensivas en este contexto)
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # ================================================================
@@ -35,7 +34,6 @@ CLOUD_API_SECRET = os.getenv("CLOUDINARY_API_SECRET")
 
 ESTADO_FILE = "estado_terror.json"
 
-# Configurar Cloudinary
 CLOUDINARY_DISPONIBLE = False
 if all([CLOUD_NAME, CLOUD_API_KEY, CLOUD_API_SECRET]):
     cloudinary.config(
@@ -70,7 +68,7 @@ VOCES_DISPONIBLES = [
 CONFIG_VOZ_ACTUAL = random.choice(VOCES_DISPONIBLES)
 
 # ================================================================
-# 🎵 MÚSICA DE FONDO (desde archivos locales)
+# 🎵 MÚSICA DE FONDO
 # ================================================================
 def descargar_musica_fondo():
     mp3_files = glob.glob("*.mp3") + glob.glob("**/*.mp3", recursive=True)
@@ -84,7 +82,7 @@ def descargar_musica_fondo():
         return None
 
 # ================================================================
-# 🖼️ GENERAR IMAGEN DE RESPALDO (con variación)
+# 🖼️ GENERAR IMAGEN DE RESPALDO
 # ================================================================
 def generar_imagen_respaldo(width=1080, height=1350):
     try:
@@ -103,38 +101,41 @@ def generar_imagen_respaldo(width=1080, height=1350):
         return f"https://via.placeholder.com/{width}x{height}/1a1a1a/303060"
 
 # ================================================================
-# 🤖 GENERAR CONSULTA AVANZADA PARA PEXELS USANDO DEEPSEEK (NUEVO)
+# 🤖 GENERAR CONSULTA AVANZADA PARA PEXELS (con título + contexto)
 # ================================================================
-def generar_query_pexels_con_ai(segmento_texto, tema, personaje, indice_segmento=0):
+def generar_query_pexels_con_ai(segmento_texto, tema, titulo=None, contexto_extra=None, indice_segmento=0):
     """
     Usa DeepSeek para generar una consulta de búsqueda para Pexels.
-    La consulta será detallada y atmosférica para obtener fotos coherentes.
+    Incluye el título y contexto extra para mayor precisión.
     """
-    prompt = f"""Eres un EXPERTO EN BÚSQUEDA DE FOTOGRAFÍA DE STOCK. Tu tarea es generar una consulta de búsqueda para Pexels (banco de fotos) que represente la siguiente escena de terror de la manera MÁS PRECISA y ATMOSFÉRICA posible.
+    # Construir el contexto completo
+    contexto = segmento_texto[:500]
+    if titulo:
+        contexto = f"TÍTULO: {titulo}\n\n{contexto}"
+    if contexto_extra:
+        contexto = f"{contexto}\n\nCONTEXTO ADICIONAL: {contexto_extra}"
+    
+    prompt = f"""Eres un EXPERTO EN BÚSQUEDA DE FOTOGRAFÍA DE STOCK. Genera una consulta para Pexels (banco de fotos) que represente la siguiente escena de terror.
 
-ESCENA:
+CONTEXTO COMPLETO:
 \"\"\"
-{segmento_texto[:500]}
+{contexto}
 \"\"\"
-
-TEMA PRINCIPAL: {tema}
-PERSONAJE: {personaje.get('descripcion_breve', 'persona común')}
 
 REGLAS ESTRICTAS:
 1. La consulta debe tener entre 4 y 8 palabras en INGLÉS.
-2. Debe describir el LUGAR ESPECÍFICO (ej. 'abandoned church', 'old colonial house', 'misty cemetery', 'deserted highway').
-3. Debe incluir el AMBIENTE (ej. 'foggy night', 'moonlight', 'rainy afternoon', 'dark storm').
-4. Debe mencionar OBJETOS CLAVE presentes en la escena (ej. 'broken window', 'old wooden door', 'stone cross').
-5. PROHIBIDO incluir: sangre, gore, violencia explícita, zombies, cadáveres, demonios. Enfócate en el ENTORNO y la ATMÓSFERA.
-6. La consulta debe ser apta para Pexels (no usar palabras ofensivas o violentas).
+2. Describe el LUGAR ESPECÍFICO (ej. 'abandoned church', 'old colonial house', 'misty cemetery').
+3. Incluye el AMBIENTE (ej. 'foggy night', 'moonlight', 'rainy', 'dark storm').
+4. Menciona OBJETOS CLAVE presentes en la escena (ej. 'broken window', 'old wooden door').
+5. PROHIBIDO incluir: sangre, gore, violencia, zombies, cadáveres.
+6. La consulta debe ser apta para Pexels.
 
-EJEMPLOS BUENOS:
+EJEMPLOS:
 - "abandoned colonial church foggy night mexico"
 - "dark rainy old street vintage streetlamp"
 - "moonlit ancient graveyard misty atmosphere"
-- "rustic wooden cabin isolated forest dusk"
 
-Devuelve SOLO la consulta, sin comillas, sin explicaciones, sin puntos finales.
+Devuelve SOLO la consulta, sin comillas, sin explicaciones.
 """
     url = "https://api.deepseek.com/v1/chat/completions"
     headers = {"Authorization": f"Bearer {DEEPSEEK_API_KEY}", "Content-Type": "application/json"}
@@ -148,7 +149,6 @@ Devuelve SOLO la consulta, sin comillas, sin explicaciones, sin puntos finales.
         r = requests.post(url, headers=headers, json=payload, timeout=15)
         r.raise_for_status()
         query = r.json()["choices"][0]["message"]["content"].strip()
-        # Limpiar posibles comillas o caracteres extraños
         query = re.sub(r'["\']', '', query)
         query = re.sub(r'\s+', ' ', query)
         print(f"🧠 Consulta IA generada: '{query}'")
@@ -158,9 +158,10 @@ Devuelve SOLO la consulta, sin comillas, sin explicaciones, sin puntos finales.
         return None
 
 # ================================================================
-# 🔍 EXTRAER PALABRAS CLAVE PARA PEXELS (MÉTODO DE RESPALDO)
+# 🔍 EXTRAER PALABRAS CLAVE (respaldo)
 # ================================================================
 def extraer_palabras_clave_pexels(segmento_texto, tema, personaje, indice_segmento=0):
+    # ... (misma función de siempre, la dejo igual)
     texto_limpio = limpiar_texto_para_imagen(segmento_texto)
     lugar = "Mexico"
     match = re.search(r'en\s+([A-ZÁÉÍÓÚÑ][a-záéíóúñ]+\s*[A-ZÁÉÍÓÚÑ]?[a-záéíóúñ]*)', segmento_texto)
@@ -215,7 +216,7 @@ def extraer_palabras_clave_pexels(segmento_texto, tema, personaje, indice_segmen
     return query
 
 # ================================================================
-# 📷 BUSCAR IMAGEN EN PEXELS (con consulta mejorada)
+# 📷 BUSCAR IMAGEN EN PEXELS
 # ================================================================
 def generar_imagen_pexels(query, width=1080, height=1350, orientacion="vertical", page=None):
     if not PEXELS_API_KEY:
@@ -272,7 +273,7 @@ def generar_imagen_pexels(query, width=1080, height=1350, orientacion="vertical"
         return generar_imagen_respaldo(width, height)
 
 # ================================================================
-# FUNCIONES AUXILIARES
+# FUNCIONES AUXILIARES (cargar_temas, estado, etc.)
 # ================================================================
 def cargar_temas():
     try:
@@ -795,9 +796,9 @@ def crear_subtitulo_por_segmento(texto, duracion, video_size=(1080, 1920)):
         return None
 
 # ================================================================
-# 🎬 CREAR VIDEO CON MÚLTIPLES ESCENAS (CON CONSULTAS IA MEJORADAS)
+# 🎬 CREAR VIDEO CON MÚLTIPLES ESCENAS (con contexto mejorado)
 # ================================================================
-def crear_y_subir_video(texto, imagen_url, historia_completa, tema, personaje, num_escenas=3):
+def crear_y_subir_video(texto, imagen_url, historia_completa, tema, personaje, titulo, num_escenas=3):
     if not CLOUDINARY_DISPONIBLE:
         print("❌ Cloudinary no configurado.")
         return None
@@ -816,10 +817,15 @@ def crear_y_subir_video(texto, imagen_url, historia_completa, tema, personaje, n
     for i, seg in enumerate(segmentos_texto):
         print(f"🔍 Generando consulta IA para segmento {i+1}/{len(segmentos_texto)}...")
         
-        # 1. Intentar generar consulta con IA
-        query = generar_query_pexels_con_ai(seg, tema, personaje, i)
+        # Pasar el título y el contexto extra para mejorar la consulta
+        query = generar_query_pexels_con_ai(
+            segmento_texto=seg,
+            tema=tema,
+            titulo=titulo,
+            contexto_extra=f"La historia trata sobre {tema} en México. La escena es parte de un relato de terror.",
+            indice_segmento=i
+        )
         
-        # 2. Si la IA falla, usar el método de respaldo (regex)
         if not query:
             query = extraer_palabras_clave_pexels(seg, tema, personaje, i)
         
@@ -839,7 +845,7 @@ def crear_y_subir_video(texto, imagen_url, historia_completa, tema, personaje, n
                 print(f"⚠️ Imagen {i+1} falló, usando imagen de respaldo genérica")
     
     while len(urls_imagenes) < 3:
-        query = generar_query_pexels_con_ai(texto[:200], tema, personaje, 0) or "mexican night landscape"
+        query = generar_query_pexels_con_ai(texto[:200], tema, titulo, None, 0) or "mexican night landscape"
         page = (int(time.time()) % 10) + 1
         urls_imagenes.append(generar_imagen_pexels(query, width=1080, height=1920, orientacion="vertical", page=page))
     
@@ -990,11 +996,11 @@ def crear_y_subir_video(texto, imagen_url, historia_completa, tema, personaje, n
                 pass
 
 # ================================================================
-# MAIN (100% COMPLETO CON CONSULTAS IA MEJORADAS)
+# MAIN (con consultas IA mejoradas)
 # ================================================================
 def main():
     print(f"🎤 Voz inicial: {CONFIG_VOZ_ACTUAL['voz']} ({CONFIG_VOZ_ACTUAL['velocidad']})")
-    print("👻 Iniciando Bot de Terror (Consultas IA para Pexels + Imágenes únicas)")
+    print("👻 Iniciando Bot de Terror (Consultas IA contextuales para Pexels)")
     print(f"📅 {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
 
     if not all([DEEPSEEK_API_KEY, MAKE_WEBHOOK_URL_TERROR, PEXELS_API_KEY]):
@@ -1044,10 +1050,17 @@ def main():
 
     personaje_post = detectar_personaje_y_epoca(historia_post)
 
-    print("🎨 Buscando imagen para POST (4:5) en Pexels con consulta IA...")
-    query_post = generar_query_pexels_con_ai(historia_post[:500], tema_post, personaje_post, 0)
+    print("🎨 Buscando imagen para POST (4:5) con consulta IA contextual...")
+    query_post = generar_query_pexels_con_ai(
+        segmento_texto=historia_post[:500],
+        tema=tema_post,
+        titulo=titulo_historia_post,
+        contexto_extra=f"Escena principal del relato: {tema_post}. Busca una foto que represente el lugar y la atmósfera de esta historia.",
+        indice_segmento=0
+    )
     if not query_post:
         query_post = extraer_palabras_clave_pexels(historia_post[:500], tema_post, personaje_post, 0)
+    
     page_post = (int(time.time()) % 10) + 1
     image_post_url = generar_imagen_pexels(query_post, width=1080, height=1350, orientacion="vertical", page=page_post)
     if not image_post_url:
@@ -1090,7 +1103,7 @@ def main():
     resumen_reel = generar_resumen_reel(historia_reel, restriccion_reel)
     print(f"✅ Resumen Reel: {len(resumen_reel.split())} palabras")
 
-    print("🎥 Generando 3 imágenes únicas con consultas IA para el Reel...")
+    print("🎥 Generando 3 imágenes únicas con consultas IA contextuales para cada segmento...")
     image_reel_url = None
 
     reel_video_url = None
@@ -1101,6 +1114,7 @@ def main():
             historia_completa=historia_reel,
             tema=tema_reel,
             personaje=personaje_reel,
+            titulo=titulo_historia_reel,
             num_escenas=3
         )
         if not reel_video_url:
