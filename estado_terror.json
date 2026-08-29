@@ -54,10 +54,12 @@
     "La casa del espanto de la calle de los Sapos, Puebla",
     "La sombra del Faro de Mazatlán, Sinaloa",
     "La sombra del Tepozteco, Tepoztlán, Morelos",
-    "El monstruo del Cerro de la Estrella, Iztapalapa, Ciudad de México"
+    "El monstruo del Cerro de la Estrella, Iztapalapa, Ciudad de México",
+    "La mujer del Panteón de Santa Paula, Guanajuato",
+    "El fantasma del Palacio de Cortés, Morelos"
   ],
-  "ultimo_tema": "El monstruo del Cerro de la Estrella, Iztapalapa, Ciudad de México",
+  "ultimo_tema": "El fantasma del Palacio de Cortés, Morelos",
   "reintentar_en_siguiente": false,
-  "ultima_publicacion_exitosa": "2026-08-28T20:27:21.501939",
+  "ultima_publicacion_exitosa": "2026-08-29T03:17:58.640068",
   "ultimo_intento_fallido": null
 }
