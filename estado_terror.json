@@ -60,10 +60,12 @@
     "La sombra del Acueducto, Querétaro",
     "El charro de la carretera a Zacatecas",
     "La mujer del río Tula, Hidalgo",
-    "El fantasma del Palacio de Gobierno de Saltillo"
+    "El fantasma del Palacio de Gobierno de Saltillo",
+    "La sombra del Pico de Orizaba, Veracruz",
+    "El charro de la carretera a Morelia, Michoacán"
   ],
-  "ultimo_tema": "El fantasma del Palacio de Gobierno de Saltillo",
+  "ultimo_tema": "El charro de la carretera a Morelia, Michoacán",
   "reintentar_en_siguiente": false,
-  "ultima_publicacion_exitosa": "2026-08-29T07:28:12.082427",
+  "ultima_publicacion_exitosa": "2026-08-29T17:48:04.295352",
   "ultimo_intento_fallido": null
 }
