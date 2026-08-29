@@ -58,10 +58,12 @@
     "La mujer del Panteón de Santa Paula, Guanajuato",
     "El fantasma del Palacio de Cortés, Morelos",
     "La sombra del Acueducto, Querétaro",
-    "El charro de la carretera a Zacatecas"
+    "El charro de la carretera a Zacatecas",
+    "La mujer del río Tula, Hidalgo",
+    "El fantasma del Palacio de Gobierno de Saltillo"
   ],
-  "ultimo_tema": "El charro de la carretera a Zacatecas",
+  "ultimo_tema": "El fantasma del Palacio de Gobierno de Saltillo",
   "reintentar_en_siguiente": false,
-  "ultima_publicacion_exitosa": "2026-08-29T06:20:37.333373",
+  "ultima_publicacion_exitosa": "2026-08-29T07:28:12.082427",
   "ultimo_intento_fallido": null
 }
