@@ -56,10 +56,12 @@
     "La sombra del Tepozteco, Tepoztlán, Morelos",
     "El monstruo del Cerro de la Estrella, Iztapalapa, Ciudad de México",
     "La mujer del Panteón de Santa Paula, Guanajuato",
-    "El fantasma del Palacio de Cortés, Morelos"
+    "El fantasma del Palacio de Cortés, Morelos",
+    "La sombra del Acueducto, Querétaro",
+    "El charro de la carretera a Zacatecas"
   ],
-  "ultimo_tema": "El fantasma del Palacio de Cortés, Morelos",
+  "ultimo_tema": "El charro de la carretera a Zacatecas",
   "reintentar_en_siguiente": false,
-  "ultima_publicacion_exitosa": "2026-08-29T03:17:58.640068",
+  "ultima_publicacion_exitosa": "2026-08-29T06:20:37.333373",
   "ultimo_intento_fallido": null
 }
