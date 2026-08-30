@@ -64,10 +64,12 @@
     "La sombra del Pico de Orizaba, Veracruz",
     "El charro de la carretera a Morelia, Michoacán",
     "Las luces de la Laguna de Chapala, Jalisco",
-    "El niño que ve muertos, San Miguel de Allende, Guanajuato"
+    "El niño que ve muertos, San Miguel de Allende, Guanajuato",
+    "El aparecido del Cerro de la Guelaguetza, Oaxaca",
+    "La nave en el desierto de Vizcaíno, BCS"
   ],
-  "ultimo_tema": "El niño que ve muertos, San Miguel de Allende, Guanajuato",
+  "ultimo_tema": "La nave en el desierto de Vizcaíno, BCS",
   "reintentar_en_siguiente": false,
-  "ultima_publicacion_exitosa": "2026-08-29T23:34:40.506117",
+  "ultima_publicacion_exitosa": "2026-08-30T05:56:27.771144",
   "ultimo_intento_fallido": null
 }
