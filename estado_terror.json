@@ -86,10 +86,12 @@
     "El fantasma del Palacio de los Reyes en Morelia",
     "El niño del mercado de Abastos, Guadalajara",
     "El monstruo del Cerro de la Bufa, Zacatecas, Zacatecas",
-    "El aparecido del Cañón de Santa Catarina, Nuevo León"
+    "El aparecido del Cañón de Santa Catarina, Nuevo León",
+    "El niño que ve muertos, Taxco, Guerrero",
+    "El charro de la carretera a Oaxaca"
   ],
-  "ultimo_tema": "El aparecido del Cañón de Santa Catarina, Nuevo León",
+  "ultimo_tema": "El charro de la carretera a Oaxaca",
   "reintentar_en_siguiente": false,
-  "ultima_publicacion_exitosa": "2026-09-02T05:10:20.775932",
+  "ultima_publicacion_exitosa": "2026-09-02T17:59:54.486894",
   "ultimo_intento_fallido": null
 }
