@@ -92,10 +92,12 @@
     "El niño que ve muertos de Real de Catorce, San Luis Potosí",
     "La sombra de Monte Albán, Oaxaca",
     "La abducción en la carretera a Saltillo, Coahuila",
-    "El monstruo del Lago de Pátzcuaro, Michoacán"
+    "El monstruo del Lago de Pátzcuaro, Michoacán",
+    "El duende de la callejoneada, Zacatecas",
+    "La bruja del cerro de la Silla, Nuevo León"
   ],
-  "ultimo_tema": "El monstruo del Lago de Pátzcuaro, Michoacán",
+  "ultimo_tema": "La bruja del cerro de la Silla, Nuevo León",
   "reintentar_en_siguiente": false,
-  "ultima_publicacion_exitosa": "2026-09-03T05:08:55.652978",
+  "ultima_publicacion_exitosa": "2026-09-03T17:55:43.129981",
   "ultimo_intento_fallido": null
 }
