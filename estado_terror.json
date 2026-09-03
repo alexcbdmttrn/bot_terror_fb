@@ -90,10 +90,12 @@
     "El niño que ve muertos, Taxco, Guerrero",
     "El charro de la carretera a Oaxaca",
     "El niño que ve muertos de Real de Catorce, San Luis Potosí",
-    "La sombra de Monte Albán, Oaxaca"
+    "La sombra de Monte Albán, Oaxaca",
+    "La abducción en la carretera a Saltillo, Coahuila",
+    "El monstruo del Lago de Pátzcuaro, Michoacán"
   ],
-  "ultimo_tema": "La sombra de Monte Albán, Oaxaca",
+  "ultimo_tema": "El monstruo del Lago de Pátzcuaro, Michoacán",
   "reintentar_en_siguiente": false,
-  "ultima_publicacion_exitosa": "2026-09-02T23:32:47.463976",
+  "ultima_publicacion_exitosa": "2026-09-03T05:08:55.652978",
   "ultimo_intento_fallido": null
 }
