@@ -96,10 +96,12 @@
     "El duende de la callejoneada, Zacatecas",
     "La bruja del cerro de la Silla, Nuevo León",
     "La mujer del puente de los Suspiros en CDMX",
-    "El nahual de la sierra de Chiapas"
+    "El nahual de la sierra de Chiapas",
+    "El diablo en la muralla de Campeche",
+    "El fantasma del Palacio Municipal de Puebla"
   ],
-  "ultimo_tema": "El nahual de la sierra de Chiapas",
+  "ultimo_tema": "El fantasma del Palacio Municipal de Puebla",
   "reintentar_en_siguiente": false,
-  "ultima_publicacion_exitosa": "2026-09-03T23:29:16.584923",
+  "ultima_publicacion_exitosa": "2026-09-04T05:12:01.415074",
   "ultimo_intento_fallido": null
 }
