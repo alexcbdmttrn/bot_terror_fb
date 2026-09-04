@@ -100,10 +100,12 @@
     "El diablo en la muralla de Campeche",
     "El fantasma del Palacio Municipal de Puebla",
     "La sombra de la Catedral de Puebla, Puebla, Puebla",
-    "El charro de la carretera a Acapulco"
+    "El charro de la carretera a Acapulco",
+    "El encuentro cercano en el desierto de Coahuila",
+    "La leyenda de las minas de El Edén, Zacatecas"
   ],
-  "ultimo_tema": "El charro de la carretera a Acapulco",
+  "ultimo_tema": "La leyenda de las minas de El Edén, Zacatecas",
   "reintentar_en_siguiente": false,
-  "ultima_publicacion_exitosa": "2026-09-04T17:41:01.512101",
+  "ultima_publicacion_exitosa": "2026-09-04T23:14:24.776766",
   "ultimo_intento_fallido": null
 }
