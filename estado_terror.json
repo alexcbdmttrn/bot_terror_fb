@@ -102,10 +102,12 @@
     "La sombra de la Catedral de Puebla, Puebla, Puebla",
     "El charro de la carretera a Acapulco",
     "El encuentro cercano en el desierto de Coahuila",
-    "La leyenda de las minas de El Edén, Zacatecas"
+    "La leyenda de las minas de El Edén, Zacatecas",
+    "La sombra del Panteón de Tampico",
+    "La llorona de la Macroplaza, Monterrey"
   ],
-  "ultimo_tema": "La leyenda de las minas de El Edén, Zacatecas",
+  "ultimo_tema": "La llorona de la Macroplaza, Monterrey",
   "reintentar_en_siguiente": false,
-  "ultima_publicacion_exitosa": "2026-09-04T23:14:24.776766",
+  "ultima_publicacion_exitosa": "2026-09-05T05:00:34.715561",
   "ultimo_intento_fallido": null
 }
