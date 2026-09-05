@@ -104,10 +104,12 @@
     "El encuentro cercano en el desierto de Coahuila",
     "La leyenda de las minas de El Edén, Zacatecas",
     "La sombra del Panteón de Tampico",
-    "La llorona de la Macroplaza, Monterrey"
+    "La llorona de la Macroplaza, Monterrey",
+    "El fantasma del Edificio Balmoral, Acapulco, Guerrero",
+    "La sombra de los cenotes, Yucatán"
   ],
-  "ultimo_tema": "La llorona de la Macroplaza, Monterrey",
+  "ultimo_tema": "La sombra de los cenotes, Yucatán",
   "reintentar_en_siguiente": false,
-  "ultima_publicacion_exitosa": "2026-09-05T05:00:34.715561",
+  "ultima_publicacion_exitosa": "2026-09-05T16:54:35.915761",
   "ultimo_intento_fallido": null
 }
